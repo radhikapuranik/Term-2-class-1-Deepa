@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { Hero } from "@/components/Hero";
 import { Banners } from "@/components/DeskBanners";
-import { Badge, CoverBar, StatusBadges, actionText, reasonLine, GLOSSARY, Term } from "@/components/ui";
+import { Badge, GLOSSARY, Term } from "@/components/ui";
 import { isDemoData, latestRun, previewRecs, recsForRun, urgencyRank } from "@/lib/queries";
 import { n0 } from "@/lib/format";
+import { DecisionQueue } from "@/components/DecisionQueue";
+import { currentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function Today({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
   const upliftOff = sp.uplift === "off";
-  const [run, demo] = await Promise.all([latestRun(), isDemoData()]);
+  const [run, demo, user] = await Promise.all([latestRun(), isDemoData(), currentUser()]);
   if (!run) return <div className="empty"><h2>No analysis yet</h2><p>Load data on the <Link href="/data">Data page</Link> and run the analysis.</p></div>;
   const recs = upliftOff ? await previewRecs(false) : await recsForRun(run.id);
   const open = (r: (typeof recs)[number]) => r.decision_status === "Recommended" || r.decision_status === "Deferred";
@@ -41,20 +43,7 @@ export default async function Today({ searchParams }: PageProps<"/">) {
           <h2 id="needs">Needs a decision</h2>
           <p className="muted small">Most urgent first. <Term tip={GLOSSARY.cover}>Weeks of cover</Term> bars show today (▮) and after the order (◯) against the safe zone.</p>
           {needs.length === 0 ? <div className="empty">Nothing needs a decision. Stock looks healthy.</div> : (
-            <table className="tbl stack">
-              <caption className="sr">SKUs that need a decision</caption>
-              <thead><tr><th>SKU</th><th>Status</th><th>Cover</th><th>Recommendation</th></tr></thead>
-              <tbody>
-                {needs.slice(0, 8).map((r) => (
-                  <tr key={r.sku_id}>
-                    <td data-label="SKU"><Link className="sku-link" href={`/sku/${r.sku_id}`}>{r.sku_name.replace("Freshroots ", "")}</Link><span className="sku-code">{r.sku_id}</span></td>
-                    <td data-label="Status"><StatusBadges r={r} /></td>
-                    <td data-label="Cover" style={{ minWidth: 150 }}><CoverBar cover={r.cover} after={r.coverAfter} min={r.minWeeks} max={r.maxWeeks} /></td>
-                    <td data-label="Recommendation"><b>{actionText(r)}</b>{r.decision_status !== "Recommended" && <> <span className="badge b-decision">{r.decision_status}</span></>}<div className="small muted">{reasonLine(r)}</div></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DecisionQueue recs={needs.slice(0, 8)} signedIn={!!user} keyboard={!upliftOff} />
           )}
           {needs.length > 8 && <p style={{ marginTop: 12 }}><Link href="/recommendations">See all {needs.length} →</Link></p>}
         </section>

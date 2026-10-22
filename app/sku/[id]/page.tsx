@@ -6,7 +6,11 @@ import { SalesChart } from "@/components/SalesChart";
 import { festivalMonths, isDemoData, latestRun, recForSku, salesFor } from "@/lib/queries";
 import { loadSettings } from "@/lib/store";
 import { Banners } from "@/components/DeskBanners";
-import { n0, n1 } from "@/lib/format";
+import { n0, n1, dateTimeIst } from "@/lib/format";
+import { DecisionQueue } from "@/components/DecisionQueue";
+import { CommentForm } from "@/components/CommentForm";
+import { currentUser } from "@/lib/auth";
+import { query } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +20,12 @@ export default async function Page({ params }: PageProps<"/sku/[id]">) {
   if (!run) notFound();
   const r = await recForSku(run.id, id.toUpperCase());
   if (!r) notFound();
-  const [sales, cal, settings, demo] = await Promise.all([salesFor(r.sku_id), festivalMonths(), loadSettings(), isDemoData()]);
+  const [sales, cal, settings, demo, user, history, comments] = await Promise.all([
+    salesFor(r.sku_id), festivalMonths(), loadSettings(), isDemoData(), currentUser(),
+    query<{ decision: string; final_qty: number | null; reason_code: string | null; reason_text: string | null; decided_by: string; decided_at: string; undone: boolean }>(
+      "SELECT decision, final_qty, reason_code, reason_text, decided_by, decided_at, undone FROM decisions WHERE sku_id=$1 ORDER BY id DESC LIMIT 20", [r.sku_id]),
+    query<{ body: string; author: string; created_at: string }>("SELECT body, author, created_at FROM comments WHERE sku_id=$1 ORDER BY id DESC LIMIT 20", [r.sku_id]),
+  ]);
   const fest = new Map(cal.map((c) => [c.year_month, c.is_festival_month]));
   const ann = r.status === "stockout" ? { text: `Stockout risk: ${n1(r.cover)} wks of cover`, kind: "stockout" as const }
     : r.status === "overstock" ? { text: `Overstock: ${n1(r.cover)} wks of cover`, kind: "overstock" as const }
@@ -39,7 +48,7 @@ export default async function Page({ params }: PageProps<"/sku/[id]">) {
           {r.exceptions.length > 0 && (
             <ul className="small" style={{ margin: "14px 0 0", paddingLeft: 18 }}>{r.exceptions.map((e, i) => <li key={i}>{e.message}</li>)}</ul>
           )}
-          <p className="muted small" style={{ marginTop: 14 }} id="actions-slot">Approve, edit, override or defer on the planner screen once signed in.</p>
+          <div style={{ marginTop: 16 }}><DecisionQueue recs={[r]} signedIn={!!user} actionsOnly /></div>
         </section>
         <section className="col-4 card" aria-labelledby="nums">
           <h2 id="nums">The numbers</h2>
@@ -65,6 +74,20 @@ export default async function Page({ params }: PageProps<"/sku/[id]">) {
             <div className="card"><p>{r.ai_explanation.plain_explanation}</p><p><b>Question for the planner:</b> {r.ai_explanation.question_for_planner}</p><p className="muted"><b>Watch out:</b> {r.ai_explanation.watch_out}</p><p className="small muted">Written by Gemini. Numbers come from the rule engine.</p></div>
           ) : <div className="empty small">No AI explanation for this SKU. It is only written for exceptions.</div>}
           <p className="small muted" style={{ marginTop: 12 }}>Limits in use: {settings.stockoutWeeksNormal} to {settings.overstockWeeksNormal} weeks (perishable {settings.stockoutWeeksPerishable} to {settings.overstockWeeksPerishable}). <Link href="/rules">Change rules</Link></p>
+        </section>
+        <section className="col-6 card" aria-labelledby="hist">
+          <h2 id="hist">Decision history</h2>
+          {history.length === 0 ? <p className="muted small">No decisions on this SKU yet.</p> : (
+            <ul className="small" style={{ listStyle: "none", padding: 0, margin: "10px 0 0", display: "grid", gap: 8 }}>
+              {history.map((h, i) => <li key={i} style={{ opacity: h.undone ? 0.5 : 1 }}><b>{h.decision}</b>{h.final_qty != null && ` (${h.final_qty})`}{h.undone && " · undone"} by {h.decided_by}<div className="muted">{dateTimeIst(h.decided_at)}{h.reason_text ? ` · ${h.reason_text}` : h.reason_code && !["edit", "defer"].includes(h.reason_code) ? ` · ${h.reason_code}` : ""}</div></li>)}
+            </ul>
+          )}
+        </section>
+        <section className="col-6 card" aria-labelledby="cmt">
+          <h2 id="cmt">Comments</h2>
+          {comments.map((c, i) => <p key={i} className="small" style={{ margin: "10px 0 0" }}>{c.body}<span className="muted"> · {c.author}, {dateTimeIst(c.created_at)}</span></p>)}
+          {comments.length === 0 && <p className="muted small">No comments yet.</p>}
+          <div style={{ marginTop: 12 }}>{user ? <CommentForm skuId={r.sku_id} /> : <p className="small muted">Sign in to comment.</p>}</div>
         </section>
       </div>
     </>

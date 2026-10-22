@@ -12,3 +12,7 @@
 - Keys tested and working. GEMINI_MODEL=gemini-3.8-flash. Neon seeded, run #1+ stored.
 - Built: design system, Today, All SKUs (filters, sort, paging, receipt), SKU page (cover bar, chart, receipt), Rules (preview, save with reason, history), login (passcode cookie), 404, loading.
 - Next: Phase 3 workflow (approve/edit/override/defer/undo, exceptions, order sheet, Data page, /api/ingest).
+
+## Update (Phase 3 done)
+- Workflow: approve/edit/override/defer/undo (+J K A E O D U keys, undo toast), bulk approve, exceptions queue + override patterns + decision log, order sheet + CSV + print, comments, Data page (validate then save, one transaction), POST /api/ingest (token).
+- Next: Phase 4 Gemini explanations, digest email, cron + Run now, failure simulation, tests for validator/ingest.

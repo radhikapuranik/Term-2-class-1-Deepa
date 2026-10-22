@@ -50,7 +50,8 @@ CREATE INDEX IF NOT EXISTS recommendations_sku_idx ON recommendations (sku_id, r
 CREATE TABLE IF NOT EXISTS decisions (
   id bigserial PRIMARY KEY, recommendation_id bigint NOT NULL REFERENCES recommendations(id) ON DELETE CASCADE,
   sku_id text NOT NULL, decision text NOT NULL, final_qty integer, reason_code text, reason_text text,
-  decided_by text NOT NULL, decided_at timestamptz NOT NULL DEFAULT now(), undone boolean NOT NULL DEFAULT false
+  decided_by text NOT NULL, decided_at timestamptz NOT NULL DEFAULT now(), undone boolean NOT NULL DEFAULT false,
+  prev_status text, prev_qty integer
 );
 CREATE TABLE IF NOT EXISTS exceptions (
   id bigserial PRIMARY KEY, recommendation_id bigint NOT NULL REFERENCES recommendations(id) ON DELETE CASCADE,
@@ -60,14 +61,8 @@ CREATE TABLE IF NOT EXISTS comments (
   id bigserial PRIMARY KEY, sku_id text NOT NULL, body text NOT NULL, author text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE IF NOT EXISTS order_drafts (
-  id bigserial PRIMARY KEY, distributor_id text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
-  status text NOT NULL DEFAULT 'Draft'
-);
-CREATE TABLE IF NOT EXISTS order_lines (
-  id bigserial PRIMARY KEY, order_id bigint NOT NULL REFERENCES order_drafts(id) ON DELETE CASCADE,
-  recommendation_id bigint NOT NULL, sku_id text NOT NULL, qty integer NOT NULL
-);
 CREATE TABLE IF NOT EXISTS ai_cache (
   input_hash text PRIMARY KEY, output jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE decisions ADD COLUMN IF NOT EXISTS prev_status text;
+ALTER TABLE decisions ADD COLUMN IF NOT EXISTS prev_qty integer;

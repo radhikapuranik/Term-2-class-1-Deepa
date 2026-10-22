@@ -6,11 +6,13 @@ import { n1 } from "@/lib/format";
 import type { Rec } from "@/lib/queries";
 import type { TraceLine } from "@/lib/rules/types";
 import { Receipt } from "./Receipt";
+import { useRouter } from "next/navigation";
+import { bulkApprove } from "@/app/workflow";
 
 type Key = "sku" | "cover" | "qty" | "urgency";
 const PAGE = 25;
 
-export function RecTable({ recs, initialStatus, distributors, readOnly }: { recs: Rec[]; initialStatus?: string; distributors: string[]; readOnly?: boolean }) {
+export function RecTable({ recs, initialStatus, distributors, readOnly, signedIn }: { recs: Rec[]; initialStatus?: string; distributors: string[]; readOnly?: boolean; signedIn?: boolean }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState(initialStatus ?? "");
   const [dist, setDist] = useState("");
@@ -19,6 +21,11 @@ export function RecTable({ recs, initialStatus, distributors, readOnly }: { recs
   const [sort, setSort] = useState<{ k: Key; dir: 1 | -1 }>({ k: "urgency", dir: 1 });
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [msg, setMsg] = useState("");
+  const router = useRouter();
+  const canAct = !!signedIn && !readOnly;
+  const approveable = (r: Rec) => r.id != null && r.action !== "review" && r.action !== "none" && (r.decision_status === "Recommended" || r.decision_status === "Deferred");
   const [trace, setTrace] = useState<Record<string, TraceLine[]>>({});
   const cats = useMemo(() => [...new Set(recs.map((r) => r.category))].sort(), [recs]);
 
@@ -61,13 +68,24 @@ export function RecTable({ recs, initialStatus, distributors, readOnly }: { recs
         <div><label htmlFor="ct">Category</label><select id="ct" value={cat} onChange={(e) => reset(() => setCat(e.target.value))}><option value="">All</option>{cats.map((d) => <option key={d}>{d}</option>)}</select></div>
         <div><label htmlFor="pe">Perishable</label><select id="pe" value={peri} onChange={(e) => reset(() => setPeri(e.target.value))}><option value="">All</option><option value="high">Perishable</option><option value="low">Not perishable</option></select></div>
       </div>
+      {canAct && (
+        <div className="no-print" style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+          <button className="btn sm primary" disabled={picked.size === 0} onClick={async () => {
+            const res = await bulkApprove([...picked]);
+            setMsg(res.ok ? `Approved ${res.done.length}${res.skipped ? `, skipped ${res.skipped}` : ""}.` : res.error);
+            setPicked(new Set()); router.refresh();
+          }}>Approve selected ({picked.size})</button>
+          <button className="btn sm" onClick={() => setPicked(new Set(rows.filter(approveable).map((r) => r.id!)))}>Select all with an action</button>
+          <span role="status" className="small muted">{msg}</span>
+        </div>
+      )}
       {rows.length === 0 ? <div className="empty">No SKUs match these filters. <button className="btn sm" onClick={() => { setQ(""); setStatus(""); setDist(""); setCat(""); setPeri(""); }}>Clear filters</button></div> : (
         <table className="tbl stack">
           <caption>{rows.length} of {recs.length} SKUs. <Term tip={GLOSSARY.cover}>Weeks of cover</Term>: ▮ today, ◯ after the recommended order.{readOnly && " (Preview, read only.)"}</caption>
-          <thead><tr>{th("sku", "SKU")}<th>Status</th>{th("cover", "Cover")}<th>Distributor</th>{th("qty", "Recommendation")}<th><span className="sr">Details</span></th></tr></thead>
+          <thead><tr>{canAct && <th><span className="sr">Select</span></th>}{th("sku", "SKU")}<th>Status</th>{th("cover", "Cover")}<th>Distributor</th>{th("qty", "Recommendation")}<th><span className="sr">Details</span></th></tr></thead>
           <tbody>
             {shown.map((r) => (
-              <FragmentRow key={r.sku_id} r={r} open={open === r.sku_id} onToggle={() => toggle(r)} trace={trace[r.sku_id]} />
+              <FragmentRow key={r.sku_id} r={r} open={open === r.sku_id} onToggle={() => toggle(r)} trace={trace[r.sku_id]} select={canAct ? { can: approveable(r), on: r.id != null && picked.has(r.id), flip: () => setPicked((p) => { const n = new Set(p); if (r.id != null) { if (n.has(r.id)) n.delete(r.id); else n.add(r.id); } return n; }) } : undefined} />
             ))}
           </tbody>
         </table>
@@ -77,10 +95,11 @@ export function RecTable({ recs, initialStatus, distributors, readOnly }: { recs
   );
 }
 
-function FragmentRow({ r, open, onToggle, trace }: { r: Rec; open: boolean; onToggle: () => void; trace?: TraceLine[] }) {
+function FragmentRow({ r, open, onToggle, trace, select }: { r: Rec; open: boolean; onToggle: () => void; trace?: TraceLine[]; select?: { can: boolean; on: boolean; flip: () => void } }) {
   return (
     <>
-      <tr>
+      <tr className={select?.on ? "sel" : undefined}>
+        {select && <td data-label="Select"><input type="checkbox" checked={select.on} disabled={!select.can} onChange={select.flip} aria-label={`Select ${r.sku_id}`} /></td>}
         <td data-label="SKU"><Link className="sku-link" href={`/sku/${r.sku_id}`}>{r.sku_name.replace("Freshroots ", "")}</Link><span className="sku-code">{r.sku_id} · {r.category}{r.perishable ? " · perishable" : ""}</span></td>
         <td data-label="Status"><StatusBadges r={r} /></td>
         <td data-label="Cover" style={{ minWidth: 160 }}><CoverBar cover={r.cover} after={r.coverAfter} min={r.minWeeks} max={r.maxWeeks} /><span className="small muted mono">{n1(r.cover)} wks</span></td>
@@ -89,7 +108,7 @@ function FragmentRow({ r, open, onToggle, trace }: { r: Rec; open: boolean; onTo
         <td data-label=""><button className="btn sm" aria-expanded={open} onClick={onToggle}>{open ? "Hide receipt" : "Rule receipt"}</button></td>
       </tr>
       {open && (
-        <tr><td colSpan={6} className="full">{trace ? <Receipt skuId={r.sku_id} name={r.sku_name} trace={trace} /> : <span className="muted small">Loading…</span>}</td></tr>
+        <tr><td colSpan={7} className="full">{trace ? <Receipt skuId={r.sku_id} name={r.sku_name} trace={trace} /> : <span className="muted small">Loading…</span>}</td></tr>
       )}
     </>
   );
