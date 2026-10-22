@@ -66,3 +66,6 @@ CREATE TABLE IF NOT EXISTS ai_cache (
 );
 ALTER TABLE decisions ADD COLUMN IF NOT EXISTS prev_status text;
 ALTER TABLE decisions ADD COLUMN IF NOT EXISTS prev_qty integer;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS email_status text;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS email_attempts integer NOT NULL DEFAULT 0;
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS ai_counts jsonb;

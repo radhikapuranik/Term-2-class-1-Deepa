@@ -16,3 +16,7 @@
 ## Update (Phase 3 done)
 - Workflow: approve/edit/override/defer/undo (+J K A E O D U keys, undo toast), bulk approve, exceptions queue + override patterns + decision log, order sheet + CSV + print, comments, Data page (validate then save, one transaction), POST /api/ingest (token).
 - Next: Phase 4 Gemini explanations, digest email, cron + Run now, failure simulation, tests for validator/ingest.
+
+## Update (Phase 4 done)
+- Gemini (gemini-3.8-flash) explains exceptions only, validated (no new numbers/URLs/other SKUs), cached, template fallback. Digest email via Resend (3 tries). /api/cron/analyze (Bearer CRON_SECRET, 6h duplicate guard), Run now (5-min cooldown, DB-based), /runs page. SIMULATE_FAIL=gemini,email proven. 55 tests pass.
+- Next: Phase 5 Impact page (kill tiles, stale-data back-test), About, polish, screenshots, Lighthouse.

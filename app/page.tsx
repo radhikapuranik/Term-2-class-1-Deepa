@@ -4,10 +4,12 @@ import { Banners } from "@/components/DeskBanners";
 import { Badge, GLOSSARY, Term } from "@/components/ui";
 import { isDemoData, latestRun, previewRecs, recsForRun, urgencyRank } from "@/lib/queries";
 import { n0 } from "@/lib/format";
+import { RunNow } from "@/components/RunNow";
 import { DecisionQueue } from "@/components/DecisionQueue";
 import { currentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function Today({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
@@ -29,6 +31,7 @@ export default async function Today({ searchParams }: PageProps<"/">) {
       <Banners run={run} demo={demo} upliftOff={upliftOff} basePath="/" />
       <Hero count={needs.length} total={recs.length}
         label={`${stock} at stockout risk, ${over} overstocked, ${high} with rising demand. ${decided} already decided. Nothing is ordered until a person approves it.`} />
+      <div style={{ marginBottom: 14 }}><RunNow signedIn={!!user} /></div>
       <div className="chips" role="list" aria-label="Status counts">
         <Link role="listitem" className="chip" href="/recommendations?status=stockout"><Badge kind="stockout">Stockout risk</Badge> <b>{stock}</b></Link>
         <Link role="listitem" className="chip" href="/recommendations?status=high"><Badge kind="high">High demand</Badge> <b>{high}</b></Link>
