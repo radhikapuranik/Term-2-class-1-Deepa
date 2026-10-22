@@ -1,5 +1,6 @@
-import { safeEqual } from "@/lib/auth";
+import { safeEqual } from "@/lib/security";
 import { query } from "@/lib/db";
+import { blocked } from "@/lib/kill";
 import { runAnalysis } from "@/lib/pipeline";
 
 export const maxDuration = 60;
@@ -10,6 +11,8 @@ export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET ?? "";
   const h = req.headers.get("authorization") ?? "";
   if (!secret || !h.startsWith("Bearer ") || !safeEqual(h.slice(7), secret)) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const off = await blocked("cron");
+  if (off) return Response.json({ ok: false, switchedOff: true, message: off }, { status: 503 });
   const recent = await query<{ id: number }>("SELECT id FROM runs WHERE trigger_type='cron' AND status='ok' AND started_at > now() - interval '6 hours' LIMIT 1");
   if (recent[0]) return Response.json({ ok: true, skipped: true, reason: "A scheduled run already finished in the last 6 hours", runId: recent[0].id });
   try {

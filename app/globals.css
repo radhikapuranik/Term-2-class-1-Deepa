@@ -251,3 +251,16 @@ kbd { font: 500 .75rem var(--f-mono); border: 1px solid var(--hair); border-bott
 .hero { padding: 4px 0 8px; }
 .hero h1 { font-size: clamp(1.9rem, 4.2vw, 3rem); max-width: none; }
 .hero-sub { margin-top: 10px; }
+
+.btn.big { padding: 12px 20px; min-height: 46px; font-size: 1rem; font-weight: 600; }
+.btn.approve { background: var(--ok); border-color: var(--ok); color: #fff; }
+.btn.disapprove { background: transparent; border: 2px solid var(--stockout); color: var(--stockout); }
+:root[data-theme="dark"] .btn.approve { color: #0E1411; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.approve { color: #0E1411; } }
+.killbar { background: var(--stockout); color: #fff; padding: 10px 16px; text-align: center; font-weight: 600; }
+:root[data-theme="dark"] .killbar { color: #1a0a08; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .killbar { color: #1a0a08; } }
+.chip-live { display: inline-flex; align-items: center; gap: 6px; font: 600 .78rem var(--f-mono); padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; text-decoration: none; }
+.chip-live.on { color: var(--ok); } .chip-live.off { color: var(--stockout); }
+.bell { position: relative; text-decoration: none; color: var(--ink); }
+.bell b { background: var(--stockout); color: #fff; border-radius: 999px; font-size: .7rem; padding: 1px 6px; margin-left: 4px; }

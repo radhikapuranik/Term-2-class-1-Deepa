@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { query } from "./db";
 import { simulate } from "./simulate";
+import { blocked } from "./kill";
 import type { SkuResult } from "./rules/types";
 
 export const ExplanationSchema = z.object({
@@ -92,6 +93,7 @@ export interface ExplainOutcome { value: Explanation; status: "ai" | "cache" | "
 
 /** One validated explanation: cache, then up to 3 attempts (1 + 2 retries), then the plain template. */
 export async function explainOne(r: SkuResult, upliftOn: boolean): Promise<ExplainOutcome> {
+  if (await blocked("gemini")) return { value: templateExplanation(r), status: "fallback" };
   const input = explainInput(r, upliftOn);
   const hash = createHash("sha256").update(`${process.env.GEMINI_MODEL}|${JSON.stringify(input)}`).digest("hex");
   if (!simulate("gemini")) {

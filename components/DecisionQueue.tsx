@@ -2,14 +2,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { decide, undo } from "@/app/workflow";
-import { OVERRIDE_REASONS } from "@/lib/decisions-shared";
+import { OVERRIDE_REASONS as REASONS } from "@/lib/decisions-shared";
+import { getName } from "@/lib/client-name";
 import { CoverBar, StatusBadges, actionText, reasonLine } from "./ui";
 import type { DecisionStatus, Rec } from "@/lib/queries";
 
 type Local = { status: DecisionStatus; finalQty: number | null; decisionId?: number };
-type Panel = "edit" | "override" | null;
+type Panel = "edit" | "disapprove" | null;
 
-export function DecisionQueue({ recs, signedIn, keyboard = false, variant = "table", actionsOnly = false }: { recs: Rec[]; signedIn: boolean; keyboard?: boolean; variant?: "table" | "cards"; actionsOnly?: boolean }) {
+export function DecisionQueue({ recs, keyboard = false, variant = "table", actionsOnly = false }: { recs: Rec[]; keyboard?: boolean; variant?: "table" | "cards"; actionsOnly?: boolean }) {
   const [local, setLocal] = useState<Record<number, Local>>({});
   const [active, setActive] = useState(0);
   const [panel, setPanel] = useState<Panel>(null);
@@ -24,16 +25,18 @@ export function DecisionQueue({ recs, signedIn, keyboard = false, variant = "tab
   const cur = recs[active];
 
   const act = useCallback((r: Rec, input: Parameters<typeof decide>[1], label: string) => {
-    if (r.id == null || !signedIn) return;
+    if (r.id == null) return;
     const prev = local[r.id];
     const optimistic: Local = {
-      status: input.kind === "approve" ? "Approved" : input.kind === "edit" ? "Edited" : input.kind === "override" ? "Overridden" : "Deferred",
-      finalQty: input.kind === "approve" ? r.qty : input.kind === "edit" ? input.qty : input.kind === "override" ? 0 : null,
+      status: input.kind === "approve" ? "Approved" : input.kind === "edit" ? "Edited" : input.kind === "disapprove" ? "Disapproved" : "Deferred",
+      finalQty: input.kind === "approve" ? r.qty : input.kind === "edit" ? input.qty : input.kind === "disapprove" ? 0 : null,
     };
     setLocal((l) => ({ ...l, [r.id!]: optimistic }));
     setPanel(null); setError("");
     start(async () => {
-      const res = await decide(r.id!, input);
+      const n = getName();
+      if (!n) { setLocal((l) => { const x = { ...l }; if (prev) x[r.id!] = prev; else delete x[r.id!]; return x; }); return; }
+      const res = await decide(r.id!, input, n);
       if (!res.ok) {
         setLocal((l) => { const n = { ...l }; if (prev) n[r.id!] = prev; else delete n[r.id!]; return n; });
         setError(res.error);
@@ -44,21 +47,21 @@ export function DecisionQueue({ recs, signedIn, keyboard = false, variant = "tab
       setToast({ text: `${label}: ${r.sku_name.replace("Freshroots ", "")}`, decisionId: res.decisionId, recId: r.id!, prev });
       timer.current = setTimeout(() => setToast(null), 8000);
     });
-  }, [local, signedIn]);
+  }, [local]);
 
   const doUndo = useCallback(() => {
     const t = lastRef.current;
     if (!t) return;
     setToast(null);
     start(async () => {
-      const res = await undo(t.decisionId);
+      const res = await undo(t.decisionId, getName());
       if (res.ok) setLocal((l) => ({ ...l, [t.recId]: { status: res.status ?? "Recommended", finalQty: res.finalQty ?? null } }));
       else setError(res.error ?? "Could not undo.");
     });
   }, []);
 
   useEffect(() => {
-    if (!keyboard || !signedIn) return;
+    if (!keyboard) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(el.tagName)) return;
@@ -69,20 +72,19 @@ export function DecisionQueue({ recs, signedIn, keyboard = false, variant = "tab
       else if (cur && k === "a") act(cur, { kind: "approve" }, "Approved");
       else if (cur && k === "d") act(cur, { kind: "defer" }, "Deferred");
       else if (cur && k === "e") { e.preventDefault(); setPanel("edit"); }
-      else if (cur && k === "o") { e.preventDefault(); setPanel("override"); }
+      else if (cur && k === "x") { e.preventDefault(); setPanel("disapprove"); }
       else if (k === "escape") setPanel(null);
       else return;
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [keyboard, signedIn, recs.length, cur, act, doUndo]);
+  }, [keyboard, recs.length, cur, act, doUndo]);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   return (
     <div>
-      {keyboard && signedIn && <p className="small muted no-print"><kbd>J</kbd>/<kbd>K</kbd> move · <kbd>A</kbd> approve · <kbd>E</kbd> edit · <kbd>O</kbd> override · <kbd>D</kbd> defer · <kbd>U</kbd> undo</p>}
-      {!signedIn && <p className="banner small"><Link href="/login">Sign in with the passcode</Link> to approve, edit, override or defer.</p>}
+      {keyboard && <p className="small muted no-print"><kbd>J</kbd>/<kbd>K</kbd> move · <kbd>A</kbd> approve · <kbd>X</kbd> disapprove · <kbd>E</kbd> edit · <kbd>D</kbd> defer · <kbd>U</kbd> undo</p>}
       {error && <div className="banner bad" role="alert">{error}</div>}
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
         {recs.map((r, i) => {
@@ -98,7 +100,7 @@ export function DecisionQueue({ recs, signedIn, keyboard = false, variant = "tab
                 </div>
                 <div><CoverBar cover={r.cover} after={r.coverAfter} min={r.minWeeks} max={r.maxWeeks} large={variant === "cards"} /></div>
                 <div>
-                  <b>{v.status === "Edited" || v.status === "Approved" ? `${r.action === "pause" ? "Pause next order" : `Order ${v.finalQty ?? 0}`}` : actionText(r)}</b>{" "}
+                  <b>{v.status === "Disapproved" ? "Not ordered" : v.status === "Edited" || v.status === "Approved" ? `${r.action === "pause" ? "Pause next order" : `Order ${v.finalQty ?? 0}`}` : actionText(r)}</b>{" "}
                   {v.status !== "Recommended" && <span className="badge b-decision" aria-live="polite">{v.status}</span>}
                   <div className="small muted">{reasonLine(r)}</div>
                   {variant === "cards" && r.exceptions.length > 0 && <ul className="small" style={{ margin: "6px 0 0", paddingLeft: 18 }}>{r.exceptions.map((e, j) => <li key={j}>{e.message}</li>)}</ul>}
@@ -116,7 +118,7 @@ export function DecisionQueue({ recs, signedIn, keyboard = false, variant = "tab
                   ) : <p className="small muted" style={{ margin: 0 }}>{r.ai_status === "fallback" ? "AI explanation unavailable. Showing the rule engine's own wording above." : "No AI explanation yet."}</p>}
                 </div>
               )}
-              {signedIn && r.id != null && (
+              {r.id != null && (
                 <ActionBar r={r} v={v} panelOpen={i === active ? panel : null}
                   setPanel={(p) => { setActive(i); setPanel(p); }} act={act} />
               )}
@@ -138,16 +140,16 @@ function ActionBar({ r, v, panelOpen, setPanel, act }: {
 }) {
   const [qty, setQty] = useState(String(r.final_qty ?? r.qty ?? r.advisoryTopUp ?? 0));
   const [reason, setReason] = useState("");
-  const [code, setCode] = useState<string>(OVERRIDE_REASONS[0]);
+  const [code, setCode] = useState<string>(REASONS[0]);
   const noQty = r.action === "review";
   return (
     <div style={{ marginTop: 12 }} className="no-print">
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="group" aria-label={`Decide for ${r.sku_id}`}>
-        <button className="btn sm primary" disabled={noQty} title={noQty ? "No automatic quantity: edit or override" : ""} onClick={() => act(r, { kind: "approve" }, "Approved")}>Approve</button>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }} role="group" aria-label={`Decide for ${r.sku_id}`}>
+        <button className="btn big approve" disabled={noQty} title={noQty ? "No automatic quantity: edit the quantity, disapprove, or defer" : "Approve (A)"} onClick={() => act(r, { kind: "approve" }, "Approved")}><span aria-hidden="true">✓</span> Approve</button>
+        <button className="btn big disapprove" onClick={() => setPanel(panelOpen === "disapprove" ? null : "disapprove")} aria-expanded={panelOpen === "disapprove"} title="Disapprove (X), needs a reason"><span aria-hidden="true">✕</span> Disapprove</button>
         <button className="btn sm" onClick={() => setPanel(panelOpen === "edit" ? null : "edit")} aria-expanded={panelOpen === "edit"}>Edit qty</button>
-        <button className="btn sm" onClick={() => setPanel(panelOpen === "override" ? null : "override")} aria-expanded={panelOpen === "override"}>Override</button>
         <button className="btn sm" onClick={() => act(r, { kind: "defer" }, "Deferred")}>Defer</button>
-        {v.status !== "Recommended" && <span className="small muted" style={{ alignSelf: "center" }}>Current: {v.status}</span>}
+        {v.status !== "Recommended" && <span className="small muted">Current: {v.status}</span>}
       </div>
       {panelOpen === "edit" && (
         <form style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginTop: 10 }} onSubmit={(e) => { e.preventDefault(); act(r, { kind: "edit", qty: Number(qty), reason }, "Edited"); }}>
@@ -157,11 +159,11 @@ function ActionBar({ r, v, panelOpen, setPanel, act }: {
           {r.advisoryTopUp != null && <span className="small muted">Advisory top-up: +{r.advisoryTopUp} units to reach the minimum.</span>}
         </form>
       )}
-      {panelOpen === "override" && (
-        <form style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginTop: 10 }} onSubmit={(e) => { e.preventDefault(); act(r, { kind: "override", reasonCode: code, reasonText: reason }, "Overridden"); }}>
-          <div><label htmlFor={`c-${r.sku_id}`}>Reason</label><select id={`c-${r.sku_id}`} value={code} onChange={(e) => setCode(e.target.value)} autoFocus>{OVERRIDE_REASONS.map((o) => <option key={o}>{o}</option>)}</select></div>
-          <div><label htmlFor={`o-${r.sku_id}`}>Details (optional)</label><input id={`o-${r.sku_id}`} value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: 260 }} /></div>
-          <button className="btn sm danger">Override: do not order</button>
+      {panelOpen === "disapprove" && (
+        <form style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginTop: 10 }} onSubmit={(e) => { e.preventDefault(); act(r, { kind: "disapprove", reasonCode: code, reasonText: reason }, "Disapproved"); }}>
+          <div><label htmlFor={`c-${r.sku_id}`}>Reason (required)</label><select id={`c-${r.sku_id}`} value={code} onChange={(e) => setCode(e.target.value)} autoFocus>{REASONS.map((o) => <option key={o}>{o}</option>)}</select></div>
+          <div><label htmlFor={`o-${r.sku_id}`}>Details (optional)</label><input id={`o-${r.sku_id}`} value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: 240 }} /></div>
+          <button className="btn sm danger">Confirm disapprove</button>
         </form>
       )}
     </div>

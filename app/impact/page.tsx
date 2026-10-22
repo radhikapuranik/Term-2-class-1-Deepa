@@ -1,7 +1,9 @@
 import { query } from "@/lib/db";
 import { staleBacktest } from "@/lib/backtest";
 import { exportLight, median, overrideLight, type Light, type WeekRate } from "@/lib/impact";
-import { n0 } from "@/lib/format";
+import { n0, dateTimeIst } from "@/lib/format";
+import { getKill } from "@/lib/kill";
+import { KillSwitch } from "@/components/KillSwitch";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Impact" };
@@ -12,13 +14,14 @@ const LIGHT: Record<Light, { word: string; cls: string; dot: string }> = {
 };
 
 export default async function Page() {
+  const kill = await getKill();
   const [weekly, totals, tta, batches, fresh, sales, runs] = await Promise.all([
     query<{ week: string; overridden: number; decided: number }>(`SELECT to_char(date_trunc('week', decided_at),'YYYY-MM-DD') AS week,
-      count(*) FILTER (WHERE decision='Overridden')::int AS overridden, count(*) FILTER (WHERE decision IN ('Approved','Edited','Overridden'))::int AS decided
+      count(*) FILTER (WHERE decision IN ('Disapproved','Edited'))::int AS overridden, count(*) FILTER (WHERE decision IN ('Approved','Edited','Disapproved'))::int AS decided
       FROM decisions WHERE undone=false GROUP BY 1 ORDER BY 1`),
-    query<{ approved: number; edited: number; overridden: number; deferred: number }>(`SELECT
+    query<{ approved: number; edited: number; disapproved: number; deferred: number }>(`SELECT
       count(*) FILTER (WHERE decision='Approved')::int AS approved, count(*) FILTER (WHERE decision='Edited')::int AS edited,
-      count(*) FILTER (WHERE decision='Overridden')::int AS overridden, count(*) FILTER (WHERE decision='Deferred')::int AS deferred FROM decisions WHERE undone=false`),
+      count(*) FILTER (WHERE decision='Disapproved')::int AS disapproved, count(*) FILTER (WHERE decision='Deferred')::int AS deferred FROM decisions WHERE undone=false`),
     query<{ h: number }>(`SELECT extract(epoch FROM (d.decided_at - r.started_at))/3600 AS h FROM decisions d JOIN recommendations x ON x.id=d.recommendation_id JOIN runs r ON r.id=x.run_id WHERE d.undone=false AND d.decision<>'Deferred'`),
     query<{ status: string }>("SELECT status FROM import_batches WHERE source<>'seed' ORDER BY id DESC LIMIT 10"),
     query<{ age: number | null }>("SELECT (current_date - max(as_of_date))::int AS age FROM inventory_snapshots"),
@@ -26,14 +29,14 @@ export default async function Page() {
     query<{ n: number }>("SELECT count(*)::int AS n FROM runs WHERE status='ok' AND started_at > now() - interval '30 days' AND trigger_type<>'seed'"),
   ]);
   const t = totals[0];
-  const acted = t.approved + t.edited + t.overridden;
+  const acted = t.approved + t.edited + t.disapproved;
   const pct = (n: number) => (acted ? `${Math.round((n / acted) * 100)}%` : "–");
   const med = median(tta.map((x) => Number(x.h)));
   const ov = overrideLight(weekly as WeekRate[]);
   const ex = exportLight(batches, fresh[0]?.age ?? null);
   const bt = staleBacktest(sales);
   const tiles: { title: string; light: Light; detail: string; rule: string }[] = [
-    { title: "Override rate", light: ov.light, detail: ov.detail, rule: "Kill if more than 40% of recommendations are overridden for 4 weeks in a row." },
+    { title: "Override rate", light: ov.light, detail: ov.detail, rule: "Kill if the override rate, (disapproved + edited) ÷ decided, is above 40% for 4 weeks in a row." },
     { title: "Data export reliability", light: ex.light, detail: ex.detail, rule: "Kill if the SAP export cannot be made reliable by about day 30." },
     { title: "Back-test vs Raghav's history", light: "unknown", detail: "This needs Raghav's past forecasts and what actually sold, which are not in the sample data. The panel below is a different, simpler test.", rule: "Kill if the back-test shows the rules are no better than his history." },
   ];
@@ -49,10 +52,13 @@ export default async function Page() {
             <div className="label">{x.title}</div>
             <div style={{ font: "700 1.3rem var(--f-display)", margin: "6px 0" }}><span aria-hidden="true">{LIGHT[x.light].dot}</span> {LIGHT[x.light].word}</div>
             <div className="small">{x.detail}</div>
+            {x.light === "bad" && <div className="small" style={{ marginTop: 8 }}><b>Consider switching off.</b> <a href="#kill-switch">Go to the kill switch</a></div>}
             <div className="small muted" style={{ marginTop: 8 }}>{x.rule}</div>
           </div>
         ))}
       </div>
+
+      <KillSwitch off={!!kill} reason={kill?.reason} when={kill ? dateTimeIst(kill.at) : undefined} />
 
       <hr className="rule" />
       <div className="grid">
@@ -75,8 +81,7 @@ export default async function Page() {
           <h2>Decisions so far</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 12 }}>
             <div><div className="kpi">{pct(t.approved)}</div><div className="small muted">approved as is</div></div>
-            <div><div className="kpi">{pct(t.edited)}</div><div className="small muted">quantity edited</div></div>
-            <div><div className="kpi">{pct(t.overridden)}</div><div className="small muted">overridden</div></div>
+            <div><div className="kpi">{pct(t.disapproved + t.edited)}</div><div className="small muted">disapproved or edited</div></div>
           </div>
           <p className="small muted" style={{ marginTop: 12 }}>{acted} decisions in total, {t.deferred} deferred. Median time from run to decision: {med == null ? "–" : med < 1 ? `${Math.round(med * 60)} min` : `${med.toFixed(1)} h`}.</p>
         </section>

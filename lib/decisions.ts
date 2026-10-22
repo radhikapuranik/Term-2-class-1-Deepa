@@ -6,10 +6,10 @@ import { OVERRIDE_REASONS } from "./decisions-shared";
 export type DecideInput =
   | { kind: "approve" }
   | { kind: "edit"; qty: number; reason: string }
-  | { kind: "override"; reasonCode: string; reasonText?: string }
+  | { kind: "disapprove"; reasonCode: string; reasonText?: string }
   | { kind: "defer"; reason?: string };
 
-const STATUS: Record<DecideInput["kind"], DecisionStatus> = { approve: "Approved", edit: "Edited", override: "Overridden", defer: "Deferred" };
+const STATUS: Record<DecideInput["kind"], DecisionStatus> = { approve: "Approved", edit: "Edited", disapprove: "Disapproved", defer: "Deferred" };
 
 export async function applyDecision(recId: number, input: DecideInput, who: string): Promise<{ ok: true; decisionId: number; status: DecisionStatus; finalQty: number | null } | { ok: false; error: string }> {
   const rows = await query<{ sku_id: string; action: string; qty: number | null; decision_status: DecisionStatus; final_qty: number | null; run_id: number }>(
@@ -23,13 +23,13 @@ export async function applyDecision(recId: number, input: DecideInput, who: stri
   let reasonCode: string | null = null;
   let reasonText: string | null = null;
   if (input.kind === "approve") {
-    if (rec.action === "review") return { ok: false, error: "This SKU has conflicting signals and no quantity. Edit the quantity, override, or defer." };
+    if (rec.action === "review") return { ok: false, error: "This SKU has conflicting signals and no quantity. Edit the quantity, disapprove, or defer." };
     finalQty = rec.qty;
   } else if (input.kind === "edit") {
     if (!Number.isInteger(input.qty) || input.qty < 0 || input.qty > 1_000_000) return { ok: false, error: "Quantity must be a whole number from 0 up." };
     if (input.reason.trim().length < 3) return { ok: false, error: "Please give a short reason for the edit." };
     finalQty = input.qty; reasonCode = "edit"; reasonText = input.reason.trim().slice(0, 300);
-  } else if (input.kind === "override") {
+  } else if (input.kind === "disapprove") {
     if (!(OVERRIDE_REASONS as readonly string[]).includes(input.reasonCode)) return { ok: false, error: "Pick a reason from the list." };
     finalQty = 0; reasonCode = input.reasonCode; reasonText = (input.reasonText ?? "").trim().slice(0, 300) || null;
   } else {
@@ -59,5 +59,5 @@ export async function undoDecision(decisionId: number): Promise<{ ok: boolean; e
 export async function overridePatterns() {
   return query<{ reason: string; n: number }>(
     `SELECT COALESCE(NULLIF(reason_code,''),'none') AS reason, count(*)::int AS n FROM decisions
-     WHERE undone=false AND decision IN ('Overridden','Edited') GROUP BY 1 ORDER BY n DESC`);
+     WHERE undone=false AND decision IN ('Disapproved','Edited') GROUP BY 1 ORDER BY n DESC`);
 }

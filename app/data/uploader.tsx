@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { checkFiles, saveFiles } from "./actions";
+import { getName } from "@/lib/client-name";
 import type { Report } from "@/lib/importer";
 import type { CsvKind } from "@/lib/csv";
 
@@ -12,7 +13,7 @@ const SLOTS: { k: CsvKind; label: string; cols: string }[] = [
   { k: "calendar", label: "calendar.csv", cols: "Year, Month, Year_Month, Is_Festival_Month" },
 ];
 
-export function Uploader({ signedIn }: { signedIn: boolean }) {
+export function Uploader() {
   const [texts, setTexts] = useState<Partial<Record<CsvKind, string>>>({});
   const [report, setReport] = useState<Report | null>(null);
   const [saved, setSaved] = useState(false);
@@ -36,9 +37,8 @@ export function Uploader({ signedIn }: { signedIn: boolean }) {
       <p className="small muted">Upload any of the files. A weekly refresh usually needs only sales and inventory. Nothing is saved until the check passes and you confirm.</p>
       <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
         <button className="btn" disabled={!count || pending} onClick={() => start(async () => { setSaved(false); setReport(await checkFiles(texts)); })}>1. Check files</button>
-        <button className="btn primary" disabled={!report?.ok || !signedIn || pending || saved} onClick={() => start(async () => { const r = await saveFiles(texts); setReport(r); setSaved(r.ok); })}>2. Save and run analysis</button>
+        <button className="btn primary" disabled={!report?.ok || pending || saved} onClick={() => start(async () => { const n = getName(); if (!n) return; const r = await saveFiles(texts, n); setReport(r); setSaved(r.ok); })}>2. Save and run analysis</button>
       </div>
-      {!signedIn && <p className="small muted" style={{ marginTop: 8 }}>You can check files without signing in. Saving needs the desk passcode.</p>}
       <div aria-live="polite" style={{ marginTop: 16 }}>
         {report?.fatal && <div className="banner bad" role="alert">{report.fatal}</div>}
         {saved && report?.ok && <div className="banner good">Saved and analysed (run #{report.runId}). The dashboard now shows your data.</div>}

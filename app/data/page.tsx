@@ -1,5 +1,4 @@
 import { Uploader } from "./uploader";
-import { currentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { dateTimeIst, dateIst, ago } from "@/lib/format";
 import { weekMondayIso } from "@/lib/weeks";
@@ -8,8 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Data" };
 
 export default async function Page() {
-  const [user, hist, fresh] = await Promise.all([
-    currentUser(),
+  const [hist, fresh] = await Promise.all([
     query<{ id: number; source: string; created_at: string; counts: Record<string, number>; status: string; errors: string[] }>("SELECT id, source, created_at, counts, status, errors FROM import_batches ORDER BY id DESC LIMIT 15"),
     query<{ week: string | null; as_of: string | null; age: number | null }>("SELECT (SELECT max(week) FROM weekly_sales) AS week, (SELECT to_char(max(as_of_date),'YYYY-MM-DD') FROM inventory_snapshots) AS as_of, (SELECT (current_date - max(as_of_date))::int FROM inventory_snapshots) AS age"),
   ]);
@@ -22,7 +20,7 @@ export default async function Page() {
       <p className="muted" style={{ maxWidth: "64ch", margin: "8px 0 20px" }}>Raghav uploads CSV exports here, or IT pushes the same files to the ingest address each time the SAP export runs. There is no live SAP connection: SAP exports files, and this page or <code className="mono">POST /api/ingest</code> receives them.</p>
       <div className={`banner ${level}`} aria-live="polite"><b>Freshness:</b> stock as of {f.as_of ? dateIst(f.as_of) : "unknown"}{age != null && ` (${age} days old)`}, latest sales week {f.week ?? "none"}{f.week && ` (Monday ${dateIst(weekMondayIso(f.week))})`}.</div>
       <div className="grid">
-        <section className="col-8 card"><h2 style={{ marginBottom: 12 }}>Upload CSV files</h2><Uploader signedIn={!!user} /></section>
+        <section className="col-8 card"><h2 style={{ marginBottom: 12 }}>Upload CSV files</h2><Uploader /></section>
         <aside className="col-4 card">
           <h2>Automatic push (for IT)</h2>
           <p className="small muted">Send the CSV text with the ingest token, after each SAP export:</p>

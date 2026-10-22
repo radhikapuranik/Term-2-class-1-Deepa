@@ -7,12 +7,14 @@ import type { Rec } from "@/lib/queries";
 import type { TraceLine } from "@/lib/rules/types";
 import { Receipt } from "./Receipt";
 import { useRouter } from "next/navigation";
-import { bulkApprove } from "@/app/workflow";
+import { bulkApprove, bulkDisapprove, decide } from "@/app/workflow";
+import { getName } from "@/lib/client-name";
+import { OVERRIDE_REASONS } from "@/lib/decisions-shared";
 
 type Key = "sku" | "cover" | "qty" | "urgency";
 const PAGE = 25;
 
-export function RecTable({ recs, initialStatus, distributors, readOnly, signedIn }: { recs: Rec[]; initialStatus?: string; distributors: string[]; readOnly?: boolean; signedIn?: boolean }) {
+export function RecTable({ recs, initialStatus, distributors, readOnly }: { recs: Rec[]; initialStatus?: string; distributors: string[]; readOnly?: boolean }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState(initialStatus ?? "");
   const [dist, setDist] = useState("");
@@ -24,7 +26,8 @@ export function RecTable({ recs, initialStatus, distributors, readOnly, signedIn
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [msg, setMsg] = useState("");
   const router = useRouter();
-  const canAct = !!signedIn && !readOnly;
+  const canAct = !readOnly;
+  const [bulkReason, setBulkReason] = useState<string>(OVERRIDE_REASONS[0]);
   const approveable = (r: Rec) => r.id != null && r.action !== "review" && r.action !== "none" && (r.decision_status === "Recommended" || r.decision_status === "Deferred");
   const [trace, setTrace] = useState<Record<string, TraceLine[]>>({});
   const cats = useMemo(() => [...new Set(recs.map((r) => r.category))].sort(), [recs]);
@@ -70,11 +73,19 @@ export function RecTable({ recs, initialStatus, distributors, readOnly, signedIn
       </div>
       {canAct && (
         <div className="no-print" style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-          <button className="btn sm primary" disabled={picked.size === 0} onClick={async () => {
-            const res = await bulkApprove([...picked]);
+          <button className="btn sm approve" disabled={picked.size === 0} onClick={async () => {
+            const n = getName(); if (!n) return;
+            const res = await bulkApprove([...picked], n);
             setMsg(res.ok ? `Approved ${res.done.length}${res.skipped ? `, skipped ${res.skipped}` : ""}.` : res.error);
             setPicked(new Set()); router.refresh();
-          }}>Approve selected ({picked.size})</button>
+          }}>✓ Approve selected ({picked.size})</button>
+          <select aria-label="Reason for disapproving" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} style={{ minHeight: 32, padding: "4px 8px" }}>{OVERRIDE_REASONS.map((o) => <option key={o}>{o}</option>)}</select>
+          <button className="btn sm disapprove" disabled={picked.size === 0} onClick={async () => {
+            const n = getName(); if (!n) return;
+            const res = await bulkDisapprove([...picked], bulkReason, "", n);
+            setMsg(res.ok ? `Disapproved ${res.done.length}${res.skipped ? `, skipped ${res.skipped}` : ""}.` : res.error);
+            setPicked(new Set()); router.refresh();
+          }}>✕ Disapprove selected ({picked.size})</button>
           <button className="btn sm" onClick={() => setPicked(new Set(rows.filter(approveable).map((r) => r.id!)))}>Select all with an action</button>
           <span role="status" className="small muted">{msg}</span>
         </div>
@@ -85,7 +96,7 @@ export function RecTable({ recs, initialStatus, distributors, readOnly, signedIn
           <thead><tr>{canAct && <th><span className="sr">Select</span></th>}{th("sku", "SKU")}<th>Status</th>{th("cover", "Cover")}<th>Distributor</th>{th("qty", "Recommendation")}<th><span className="sr">Details</span></th></tr></thead>
           <tbody>
             {shown.map((r) => (
-              <FragmentRow key={r.sku_id} r={r} open={open === r.sku_id} onToggle={() => toggle(r)} trace={trace[r.sku_id]} select={canAct ? { can: approveable(r), on: r.id != null && picked.has(r.id), flip: () => setPicked((p) => { const n = new Set(p); if (r.id != null) { if (n.has(r.id)) n.delete(r.id); else n.add(r.id); } return n; }) } : undefined} />
+              <FragmentRow key={r.sku_id} r={r} open={open === r.sku_id} onToggle={() => toggle(r)} trace={trace[r.sku_id]} canDecide={canAct} select={canAct ? { can: approveable(r), on: r.id != null && picked.has(r.id), flip: () => setPicked((p) => { const n = new Set(p); if (r.id != null) { if (n.has(r.id)) n.delete(r.id); else n.add(r.id); } return n; }) } : undefined} />
             ))}
           </tbody>
         </table>
@@ -95,7 +106,7 @@ export function RecTable({ recs, initialStatus, distributors, readOnly, signedIn
   );
 }
 
-function FragmentRow({ r, open, onToggle, trace, select }: { r: Rec; open: boolean; onToggle: () => void; trace?: TraceLine[]; select?: { can: boolean; on: boolean; flip: () => void } }) {
+function FragmentRow({ r, open, onToggle, trace, select, canDecide }: { canDecide?: boolean; r: Rec; open: boolean; onToggle: () => void; trace?: TraceLine[]; select?: { can: boolean; on: boolean; flip: () => void } }) {
   return (
     <>
       <tr className={select?.on ? "sel" : undefined}>
@@ -104,12 +115,41 @@ function FragmentRow({ r, open, onToggle, trace, select }: { r: Rec; open: boole
         <td data-label="Status"><StatusBadges r={r} /></td>
         <td data-label="Cover" style={{ minWidth: 160 }}><CoverBar cover={r.cover} after={r.coverAfter} min={r.minWeeks} max={r.maxWeeks} /><span className="small muted mono">{n1(r.cover)} wks</span></td>
         <td data-label="Distributor" className="mono small">{r.distributor_id}</td>
-        <td data-label="Recommendation"><b>{actionText(r)}</b>{r.decision_status !== "Recommended" && <> <span className="badge b-decision">{r.decision_status}</span></>}<div className="small muted">{reasonLine(r)}</div></td>
+        <td data-label="Recommendation"><b>{actionText(r)}</b>{r.decision_status !== "Recommended" && <> <span className="badge b-decision">{r.decision_status}</span></>}<div className="small muted">{reasonLine(r)}</div>{canDecide && r.id != null && <QuickDecide r={r} />}</td>
         <td data-label=""><button className="btn sm" aria-expanded={open} onClick={onToggle}>{open ? "Hide receipt" : "Rule receipt"}</button></td>
       </tr>
       {open && (
         <tr><td colSpan={7} className="full">{trace ? <Receipt skuId={r.sku_id} name={r.sku_name} trace={trace} /> : <span className="muted small">Loading…</span>}</td></tr>
       )}
     </>
+  );
+}
+
+function QuickDecide({ r }: { r: Rec }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<string>(r.decision_status);
+  const [ask, setAsk] = useState(false);
+  const [code, setCode] = useState<string>(OVERRIDE_REASONS[0]);
+  const [err, setErr] = useState("");
+  const run = async (input: Parameters<typeof decide>[1], to: string) => {
+    const n = getName(); if (!n) return;
+    const res = await decide(r.id!, input, n);
+    if (res.ok) { setStatus(to); setAsk(false); setErr(""); router.refresh(); } else setErr(res.error);
+  };
+  return (
+    <div style={{ marginTop: 8 }} className="no-print">
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button className="btn sm approve" disabled={r.action === "review" || r.action === "none"} onClick={() => run({ kind: "approve" }, "Approved")}>✓ Approve</button>
+        <button className="btn sm disapprove" onClick={() => setAsk(!ask)} aria-expanded={ask}>✕ Disapprove</button>
+        {status !== "Recommended" && <span className="badge b-decision">{status}</span>}
+      </div>
+      {ask && (
+        <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+          <select aria-label="Reason" value={code} onChange={(e) => setCode(e.target.value)} style={{ minHeight: 32, padding: "4px 8px" }}>{OVERRIDE_REASONS.map((o) => <option key={o}>{o}</option>)}</select>
+          <button className="btn sm danger" onClick={() => run({ kind: "disapprove", reasonCode: code }, "Disapproved")}>Confirm</button>
+        </div>
+      )}
+      {err && <div role="alert" className="small" style={{ color: "var(--stockout)" }}>{err}</div>}
+    </div>
   );
 }

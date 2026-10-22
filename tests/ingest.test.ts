@@ -1,8 +1,10 @@
-import { beforeAll, describe, expect, it } from "vitest";
-import { POST } from "@/app/api/ingest/route";
-import { checkPasscode } from "@/lib/auth";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
-beforeAll(() => { process.env.INGEST_TOKEN = "t0ken-for-tests"; process.env.DESK_PASSCODE = "pass-for-tests"; });
+vi.mock("@/lib/kill", () => ({ blocked: async () => null }));
+vi.mock("@/lib/security", async (orig) => ({ ...(await orig<object>()), rateLimit: async () => ({ ok: true, retryIn: 0 }) }));
+import { POST } from "@/app/api/ingest/route";
+
+beforeAll(() => { process.env.INGEST_TOKEN = "t0ken-for-tests"; });
 const req = (headers: Record<string, string>, body: unknown = {}) =>
   new Request("http://x/api/ingest", { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
 
@@ -17,12 +19,4 @@ describe("/api/ingest", () => {
     expect(j.files[0].errors[0]).toMatch(/not a valid ISO week/);
   });
   it("rejects an empty request", async () => expect((await POST(req({ authorization: "Bearer t0ken-for-tests" }, {}))).status).toBe(422));
-});
-
-describe("passcode", () => {
-  it("accepts the right one and rejects others", () => {
-    expect(checkPasscode("pass-for-tests")).toBe(true);
-    expect(checkPasscode("wrong")).toBe(false);
-    expect(checkPasscode("")).toBe(false);
-  });
 });

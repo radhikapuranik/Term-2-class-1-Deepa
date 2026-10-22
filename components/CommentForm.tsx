@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addComment } from "@/app/workflow";
+import { getName } from "@/lib/client-name";
 
 export function CommentForm({ skuId }: { skuId: string }) {
   const [text, setText] = useState("");
@@ -9,7 +10,7 @@ export function CommentForm({ skuId }: { skuId: string }) {
   const [pending, start] = useTransition();
   const router = useRouter();
   return (
-    <form onSubmit={(e) => { e.preventDefault(); start(async () => { const r = await addComment(skuId, text); if (r.ok) { setText(""); setErr(""); router.refresh(); } else setErr(r.error); }); }} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    <form onSubmit={(e) => { e.preventDefault(); start(async () => { const n = getName(); if (!n) return; const r = await addComment(skuId, text, n); if (r.ok) { setText(""); setErr(""); router.refresh(); } else setErr(r.error); }); }} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       <label htmlFor="cm" className="sr">Add a comment</label>
       <input id="cm" value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a note for the team" style={{ flex: 1, minWidth: 200 }} maxLength={500} />
       <button className="btn sm" disabled={pending || !text.trim()}>Add</button>

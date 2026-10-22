@@ -9,7 +9,6 @@ import { Banners } from "@/components/DeskBanners";
 import { n0, n1, dateTimeIst } from "@/lib/format";
 import { DecisionQueue } from "@/components/DecisionQueue";
 import { CommentForm } from "@/components/CommentForm";
-import { currentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +19,8 @@ export default async function Page({ params }: PageProps<"/sku/[id]">) {
   if (!run) notFound();
   const r = await recForSku(run.id, id.toUpperCase());
   if (!r) notFound();
-  const [sales, cal, settings, demo, user, history, comments] = await Promise.all([
-    salesFor(r.sku_id), festivalMonths(), loadSettings(), isDemoData(), currentUser(),
+  const [sales, cal, settings, demo, history, comments] = await Promise.all([
+    salesFor(r.sku_id), festivalMonths(), loadSettings(), isDemoData(),
     query<{ decision: string; final_qty: number | null; reason_code: string | null; reason_text: string | null; decided_by: string; decided_at: string; undone: boolean }>(
       "SELECT decision, final_qty, reason_code, reason_text, decided_by, decided_at, undone FROM decisions WHERE sku_id=$1 ORDER BY id DESC LIMIT 20", [r.sku_id]),
     query<{ body: string; author: string; created_at: string }>("SELECT body, author, created_at FROM comments WHERE sku_id=$1 ORDER BY id DESC LIMIT 20", [r.sku_id]),
@@ -48,7 +47,7 @@ export default async function Page({ params }: PageProps<"/sku/[id]">) {
           {r.exceptions.length > 0 && (
             <ul className="small" style={{ margin: "14px 0 0", paddingLeft: 18 }}>{r.exceptions.map((e, i) => <li key={i}>{e.message}</li>)}</ul>
           )}
-          <div style={{ marginTop: 16 }}><DecisionQueue recs={[r]} signedIn={!!user} actionsOnly /></div>
+          <div style={{ marginTop: 16 }}><DecisionQueue recs={[r]} actionsOnly /></div>
         </section>
         <section className="col-4 card" aria-labelledby="nums">
           <h2 id="nums">The numbers</h2>
@@ -87,7 +86,7 @@ export default async function Page({ params }: PageProps<"/sku/[id]">) {
           <h2 id="cmt">Comments</h2>
           {comments.map((c, i) => <p key={i} className="small" style={{ margin: "10px 0 0" }}>{c.body}<span className="muted"> · {c.author}, {dateTimeIst(c.created_at)}</span></p>)}
           {comments.length === 0 && <p className="muted small">No comments yet.</p>}
-          <div style={{ marginTop: 12 }}>{user ? <CommentForm skuId={r.sku_id} /> : <p className="small muted">Sign in to comment.</p>}</div>
+          <div style={{ marginTop: 12 }}><CommentForm skuId={r.sku_id} /></div>
         </section>
       </div>
     </>

@@ -7,7 +7,7 @@ export interface Run {
   id: number; trigger_type: string; status: string; stage: string; as_of: string | null; uplift_applied: boolean | null;
   warnings: string[]; summary: Record<string, number> | null; error: string | null; started_at: string; finished_at: string | null;
 }
-export type DecisionStatus = "Recommended" | "Approved" | "Edited" | "Overridden" | "Deferred";
+export type DecisionStatus = "Recommended" | "Approved" | "Edited" | "Disapproved" | "Deferred";
 export interface Rec extends Omit<SkuResult, "trace"> {
   id: number | null; run_id: number; category: string; unit_of_measure: string; decision_status: DecisionStatus;
   final_qty: number | null; ai_explanation: { plain_explanation: string; question_for_planner: string; watch_out: string } | null;

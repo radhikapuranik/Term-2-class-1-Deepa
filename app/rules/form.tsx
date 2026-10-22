@@ -3,6 +3,7 @@ import { useActionState } from "react";
 import { rulesAction, type RulesState } from "./actions";
 import type { Settings } from "@/lib/rules/types";
 import { Term } from "@/components/ui";
+import { getName } from "@/lib/client-name";
 
 const FIELDS: { k: string; label: string; help: string; step?: string; get: (s: Settings) => number }[] = [
   { k: "stockoutWeeksNormal", label: "Stockout below (weeks)", help: "Normal SKUs: below this many weeks of cover means reorder now.", get: (s) => s.stockoutWeeksNormal },
@@ -17,10 +18,10 @@ const FIELDS: { k: string; label: string; help: string; step?: string; get: (s: 
   { k: "minHistoryWeeks", label: "Minimum history (weeks)", help: "Fewer weeks than this counts as a new product and goes to exceptions.", get: (s) => s.minHistoryWeeks },
 ];
 
-export function RulesForm({ settings, signedIn }: { settings: Settings; signedIn: boolean }) {
+export function RulesForm({ settings }: { settings: Settings }) {
   const [state, action, pending] = useActionState<RulesState | undefined, FormData>(rulesAction, undefined);
   return (
-    <form action={action}>
+    <form action={(fd) => { fd.set("name", getName()); action(fd); }}>
       <div className="grid">
         {FIELDS.map((f) => (
           <div key={f.k} className="col-6" style={{ gridColumn: "span 6" }}>
@@ -42,9 +43,8 @@ export function RulesForm({ settings, signedIn }: { settings: Settings; signedIn
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
         <div><label htmlFor="reason">Reason for the change (needed to save)</label><input id="reason" name="reason" style={{ width: 320 }} placeholder="e.g. Diwali week needs more buffer" /></div>
         <button className="btn" name="intent" value="preview" disabled={pending}>Preview what would change</button>
-        <button className="btn primary" name="intent" value="save" disabled={pending || !signedIn} title={signedIn ? "" : "Sign in first"}>Save rules</button>
+        <button className="btn primary" name="intent" value="save" disabled={pending}>Save rules</button>
       </div>
-      {!signedIn && <p className="small muted" style={{ marginTop: 8 }}>Previewing is open to everyone. Saving needs the desk passcode: use Sign in at the top.</p>}
       <div aria-live="polite" style={{ marginTop: 16 }}>
         {state?.error && <div className="banner bad" role="alert">{state.error}</div>}
         {state?.saved && <div className="banner good">Saved. The new rules apply from the next run.</div>}

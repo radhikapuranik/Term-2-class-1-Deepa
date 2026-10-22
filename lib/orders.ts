@@ -1,6 +1,7 @@
 import { query } from "./db";
 
-export interface OrderLine { sku_id: string; sku_name: string; distributor_id: string; distributor_name: string; qty: number; unit: string; status: string; note: string | null }
+export interface OrderLine {
+  /** Approved lines, plus Edited lines (an approval with a changed quantity). */ sku_id: string; sku_name: string; distributor_id: string; distributor_name: string; qty: number; unit: string; status: string; note: string | null }
 
 export async function orderLines(): Promise<{ runId: number | null; lines: OrderLine[] }> {
   const run = await query<{ id: number }>("SELECT id FROM runs WHERE status='ok' ORDER BY id DESC LIMIT 1");

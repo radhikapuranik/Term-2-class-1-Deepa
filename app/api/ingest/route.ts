@@ -1,4 +1,6 @@
-import { safeEqual } from "@/lib/auth";
+import { safeEqual } from "@/lib/security";
+import { blocked } from "@/lib/kill";
+import { rateLimit } from "@/lib/security";
 import { KINDS, importTexts } from "@/lib/importer";
 import type { CsvKind } from "@/lib/csv";
 
@@ -16,6 +18,10 @@ function authorised(req: Request) {
 /** IT pushes the SAP export here. JSON {sales, inventory, skus, distributors, calendar} (CSV text) or multipart files with those names. */
 export async function POST(req: Request) {
   if (!authorised(req)) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const off = await blocked("ingest");
+  if (off) return Response.json({ ok: false, switchedOff: true, message: off }, { status: 503 });
+  const rl = await rateLimit("ingest", 30, 3600);
+  if (!rl.ok) return Response.json({ error: `Too many pushes. Try again in ${rl.retryIn} seconds.` }, { status: 429 });
   if (Number(req.headers.get("content-length") ?? 0) > MAX_BYTES) return Response.json({ error: "Payload too large (4 MB max)" }, { status: 413 });
   const texts: Partial<Record<CsvKind, string>> = {};
   try {

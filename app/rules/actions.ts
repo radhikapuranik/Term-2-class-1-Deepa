@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
+import { guard } from "@/lib/security";
 import { query } from "@/lib/db";
 import { runEngine } from "@/lib/rules/engine";
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/rules/types";
@@ -43,8 +43,9 @@ export async function rulesAction(_: RulesState | undefined, form: FormData): Pr
     });
     return { preview };
   }
-  const who = await requireUser().catch(() => null);
-  if (!who) return { error: "Sign in with the passcode to change rules." };
+  const g = await guard(form.get("name"));
+  if (!g.ok) return { error: g.error };
+  const who = g.who;
   const reason = String(form.get("reason") ?? "").trim();
   if (reason.length < 3) return { error: "Please give a short reason for the change." };
   let changed = 0;

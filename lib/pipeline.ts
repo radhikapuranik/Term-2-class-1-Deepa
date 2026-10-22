@@ -4,6 +4,7 @@ import type { EngineOutput, SkuResult } from "./rules/types";
 import { loadDataset, loadSettings } from "./store";
 import { MAX_EXPLAINED, explainOne, templateExplanation } from "./gemini";
 import { sendDigest } from "./email";
+import { blocked } from "./kill";
 
 type Statement = { text: string; params?: unknown[] };
 
@@ -15,6 +16,7 @@ export function resultToRow(r: SkuResult) {
 /** Runs the rule engine on the saved data and stores one recommendation per SKU. */
 export async function runAnalysis(trigger: "seed" | "manual" | "cron" | "ingest", opts: { upliftOverride?: boolean | null } = {}) {
   const notify = trigger !== "seed";
+  if (notify) { const off = await blocked("run"); if (off) throw new Error(off); }
   const [run] = await query<{ id: number }>(
     "INSERT INTO runs (trigger_type, status, stage) VALUES ($1,'running','analysing') RETURNING id", [trigger]);
   try {

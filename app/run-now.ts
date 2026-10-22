@@ -1,17 +1,20 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { blocked } from "@/lib/kill";
 import { runAnalysis } from "@/lib/pipeline";
+import { guard } from "@/lib/security";
 
 const COOLDOWN_S = 300;
 
-export async function runNow(): Promise<{ ok: boolean; message: string }> {
-  const who = await requireUser().catch(() => null);
-  if (!who) return { ok: false, message: "Sign in with the passcode to run the analysis." };
+export async function runNow(name: string): Promise<{ ok: boolean; message: string }> {
+  const off = await blocked("run");
+  if (off) return { ok: false, message: off };
+  const g = await guard(name, "runnow", 5, 3600);
+  if (!g.ok) return { ok: false, message: g.error };
   const last = await query<{ wait: number }>(
     "SELECT ceil($1 - extract(epoch FROM (now() - started_at)))::int AS wait FROM runs WHERE trigger_type='manual' ORDER BY id DESC LIMIT 1", [COOLDOWN_S]);
-  if (last[0] && last[0].wait > 0) return { ok: false, message: `Please wait ${last[0].wait} seconds before running again.` };
+  if (last[0] && last[0].wait > 0) return { ok: false, message: `Please wait ${last[0].wait} seconds before running again (5-minute cooldown).` };
   try {
     const { runId, out } = await runAnalysis("manual");
     revalidatePath("/", "layout");

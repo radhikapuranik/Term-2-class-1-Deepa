@@ -1,4 +1,6 @@
-import { Resend } from "resend";
+import { ZohoError, sendMail, zohoConfigured } from "./zoho";
+import { addAlert } from "./alerts";
+import { blocked } from "./kill";
 import { simulate } from "./simulate";
 import type { EngineOutput } from "./rules/types";
 import { dateIst } from "./format";
@@ -22,23 +24,28 @@ export function digestHtml(out: EngineOutput, runId: number, appUrl: string): { 
   return { subject, html };
 }
 
-/** Sends the digest, retrying up to 3 times. Returns how many attempts it took, or an error. */
+/** Sends the Monday/Thursday alert through Zoho Mail, retrying up to 3 times. On failure it leaves a message in the in-app bell. */
 export async function sendDigest(out: EngineOutput, runId: number): Promise<{ ok: boolean; attempts: number; error?: string }> {
-  const to = process.env.DIGEST_TO_EMAIL, key = process.env.RESEND_API_KEY;
-  if (!to || !key) return { ok: false, attempts: 0, error: "Email is not configured" };
+  const off = await blocked("alerts");
+  if (off) return { ok: false, attempts: 0, error: "Switched off" };
+  const to = process.env.DIGEST_TO_EMAIL;
+  const fail = async (error: string, easy: string, attempts: number) => {
+    await addAlert("email", `The alert for run #${runId} could not be emailed. ${easy}`).catch(() => {});
+    return { ok: false, attempts, error };
+  };
+  if (!to || !zohoConfigured()) return fail("Email is not configured", "What to switch on: fill in the Zoho lines in .env.local (client id, client secret, refresh token) and the DIGEST_TO_EMAIL line, then redeploy.", 0);
   const { subject, html } = digestHtml(out, runId, process.env.APP_URL ?? "");
-  const resend = new Resend(key);
-  let last = "";
+  let last = "", easy = "";
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       if (simulate("email")) throw new Error("Simulated email failure");
-      const { error } = await resend.emails.send({ from: "Demand Desk <onboarding@resend.dev>", to, subject, html });
-      if (!error) return { ok: true, attempts: attempt };
-      last = error.message;
+      await sendMail(to, subject, html);
+      return { ok: true, attempts: attempt };
     } catch (e) {
-      last = (e as Error).message;
+      last = (e as Error).message.slice(0, 200);
+      easy = e instanceof ZohoError ? e.easy : "Nothing to switch on from my side; the mail service did not answer. It will try again at the next run.";
     }
     if (attempt < 3) await new Promise((r) => setTimeout(r, 800 * attempt));
   }
-  return { ok: false, attempts: 3, error: last.slice(0, 200) };
+  return fail(last, `What to switch on: ${easy}`, 3);
 }

@@ -4,8 +4,10 @@ import Link from "next/link";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { currentUser } from "@/lib/auth";
-import { logout } from "./actions";
+import { NameChip } from "@/components/NameChip";
+import { getKill } from "@/lib/kill";
+import { unreadAlerts } from "@/lib/alerts";
+import { dateTimeIst } from "@/lib/format";
 
 const display = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", display: "swap" });
 const plex = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex", display: "swap" });
@@ -20,22 +22,24 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 const themeInit = `try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}`;
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const user = await currentUser();
+  const [kill, unread] = await Promise.all([getKill().catch(() => null), unreadAlerts().catch(() => 0)]);
   return (
     <html lang="en" className={`${display.variable} ${plex.variable} ${mono.variable}`} suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: themeInit }} /></head>
       <body>
         <a className="skip" href="#main">Skip to content</a>
+        {kill && <div className="killbar" role="alert">Demand Desk is switched off: {kill.reason}, {dateTimeIst(kill.at)}. Past data stays readable. <Link href="/impact#kill-switch" style={{ color: "inherit" }}>Switch back on</Link></div>}
         <div className="shell">
           <aside className="side">
             <Link href="/" className="brand">Demand <span>Desk</span><small>by Freshroots</small></Link>
             <Nav />
             <div className="side-foot">
-              {user ? <div className="small muted who" title={user}>Signed in as<br /><b style={{ color: "var(--ink)" }}>{user}</b></div> : <div className="small muted who">Read-only. Sign in to act.</div>}
-              <div className="head-tools">
-                <ThemeToggle />
-                {user ? <form action={logout}><button className="btn sm">Sign out</button></form> : <Link className="btn sm primary" href="/login">Sign in</Link>}
+              <div className="who"><NameChip /></div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <Link href="/impact#kill-switch" className={`chip-live ${kill ? "off" : "on"}`} title={kill ? "Switched off" : "Running normally"}>{kill ? "■ OFF" : "● LIVE"}</Link>
+                <Link href="/alerts" className="bell" aria-label={`Alerts, ${unread} unread`}>🔔{unread > 0 && <b>{unread}</b>}</Link>
               </div>
+              <div className="head-tools"><ThemeToggle /></div>
             </div>
           </aside>
           <div className="content">

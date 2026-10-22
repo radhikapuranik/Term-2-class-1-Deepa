@@ -1,5 +1,4 @@
 import { RunNow } from "@/components/RunNow";
-import { currentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { ago, dateIst, dateTimeIst } from "@/lib/format";
 
@@ -8,15 +7,16 @@ export const maxDuration = 60;
 export const metadata = { title: "Runs" };
 
 export default async function Page() {
-  const [user, runs] = await Promise.all([currentUser(), query<{
+  const [runs, kills] = await Promise.all([query<{
     id: number; trigger_type: string; status: string; stage: string; as_of: string | null; error: string | null; started_at: string;
     finished_at: string | null; email_status: string | null; ai_counts: { ai: number; cache: number; fallback: number } | null; summary: Record<string, number> | null; warnings: string[];
   }>(`SELECT id, trigger_type, status, stage, to_char(as_of,'YYYY-MM-DD') AS as_of, error, started_at, finished_at, email_status, ai_counts, summary, warnings
-      FROM runs ORDER BY id DESC LIMIT 40`)]);
+      FROM runs ORDER BY id DESC LIMIT 40`),
+    query<{ action: string; reason: string | null; by_name: string; at: string }>("SELECT action, reason, by_name, at FROM kill_log ORDER BY id DESC LIMIT 20")]);
   return (
     <>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ font: "700 2rem var(--f-display)" }}>Runs</h1><RunNow signedIn={!!user} />
+        <h1 style={{ font: "700 2rem var(--f-display)" }}>Runs</h1><RunNow />
       </div>
       <p className="muted" style={{ maxWidth: "64ch", margin: "8px 0 20px" }}>The analysis runs every Monday and Thursday at 08:00 IST, after each data push, and when you press Run now (once every 5 minutes at most). On the free Vercel plan the scheduled run may start anywhere inside its hour.</p>
       {runs.length === 0 ? <div className="empty">No runs yet.</div> : (
@@ -32,6 +32,12 @@ export default async function Page() {
               <td data-label="AI" className="small">{r.ai_counts ? `${r.ai_counts.ai + r.ai_counts.cache} by Gemini${r.ai_counts.fallback ? `, ${r.ai_counts.fallback} unavailable` : ""}` : "–"}</td>
               <td data-label="Email" className="small">{r.email_status ?? "–"}</td>
             </tr>))}</tbody></table>
+      )}
+      <h2 style={{ margin: "28px 0 10px" }}>Kill switch log</h2>
+      {kills.length === 0 ? <div className="empty">The kill switch has not been used.</div> : (
+        <table className="tbl stack"><caption className="sr">Kill switch log</caption>
+          <thead><tr><th>When</th><th>Action</th><th>Who</th><th>Reason</th></tr></thead>
+          <tbody>{kills.map((k, i) => <tr key={i}><td data-label="When" className="small">{dateTimeIst(k.at)}</td><td data-label="Action">{k.action === "kill" ? "■ Switched off" : "● Switched on"}</td><td data-label="Who">{k.by_name}</td><td data-label="Reason">{k.reason}</td></tr>)}</tbody></table>
       )}
     </>
   );

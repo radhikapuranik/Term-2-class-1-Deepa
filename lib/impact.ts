@@ -30,3 +30,9 @@ export const median = (xs: number[]) => {
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
+
+/** Override rate = (disapproved + edited) / decided, where decided = approved + edited + disapproved. */
+export function overrideRate(c: { approved: number; edited: number; disapproved: number }): number | null {
+  const decided = c.approved + c.edited + c.disapproved;
+  return decided ? (c.disapproved + c.edited) / decided : null;
+}
