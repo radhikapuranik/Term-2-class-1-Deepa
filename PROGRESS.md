@@ -20,3 +20,7 @@
 ## Update (Phase 4 done)
 - Gemini (gemini-3.8-flash) explains exceptions only, validated (no new numbers/URLs/other SKUs), cached, template fallback. Digest email via Resend (3 tries). /api/cron/analyze (Bearer CRON_SECRET, 6h duplicate guard), Run now (5-min cooldown, DB-based), /runs page. SIMULATE_FAIL=gemini,email proven. 55 tests pass.
 - Next: Phase 5 Impact page (kill tiles, stale-data back-test), About, polish, screenshots, Lighthouse.
+
+## Update (all phases done)
+- Deployed: https://demand-desk-mu.vercel.app (production, crons registered). Repo pushed. Lighthouse: 91 / 97 / 100. Docs written.
+- Open: Excel map file not found in the folder (not synced). Run now button not clicked live (needs passcode, left to the user).
