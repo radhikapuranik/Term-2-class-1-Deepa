@@ -7,3 +7,8 @@
 - Phase 2: DB wiring (scripts/seed, db client), design system, Today / Recommendations / SKU / Rules pages.
 ## Open questions / notes
 - Borderline: literal "within 10% of a threshold" flags only SKU001 and SKU007 on the seed; the brief's table also marks SKU008, 012, 014. Kept the literal rule (margin is editable on /rules).
+
+## Update (Phase 2 done)
+- Keys tested and working. GEMINI_MODEL=gemini-3.8-flash. Neon seeded, run #1+ stored.
+- Built: design system, Today, All SKUs (filters, sort, paging, receipt), SKU page (cover bar, chart, receipt), Rules (preview, save with reason, history), login (passcode cookie), 404, loading.
+- Next: Phase 3 workflow (approve/edit/override/defer/undo, exceptions, order sheet, Data page, /api/ingest).
