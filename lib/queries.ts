@@ -71,3 +71,7 @@ export async function salesFor(skuId: string) {
 export async function festivalMonths() {
   return query<{ year_month: string; is_festival_month: boolean }>("SELECT year_month, is_festival_month FROM calendar ORDER BY year_month");
 }
+
+export async function totalSales() {
+  return query<{ week: string; units_sold: number }>("SELECT week, sum(units_sold)::int AS units_sold FROM weekly_sales GROUP BY week ORDER BY week");
+}

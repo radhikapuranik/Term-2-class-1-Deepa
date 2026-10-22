@@ -26,22 +26,23 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <head><script dangerouslySetInnerHTML={{ __html: themeInit }} /></head>
       <body>
         <a className="skip" href="#main">Skip to content</a>
-        <header className="site-head">
-          <div className="wrap">
+        <div className="shell">
+          <aside className="side">
             <Link href="/" className="brand">Demand <span>Desk</span><small>by Freshroots</small></Link>
             <Nav />
-            <div className="head-tools">
-              <ThemeToggle />
-              {user ? (
-                <form action={logout}><button className="btn sm" title={`Signed in as ${user}`}>Sign out</button></form>
-              ) : (
-                <Link className="btn sm" href="/login">Sign in</Link>
-              )}
+            <div className="side-foot">
+              {user ? <div className="small muted who" title={user}>Signed in as<br /><b style={{ color: "var(--ink)" }}>{user}</b></div> : <div className="small muted who">Read-only. Sign in to act.</div>}
+              <div className="head-tools">
+                <ThemeToggle />
+                {user ? <form action={logout}><button className="btn sm">Sign out</button></form> : <Link className="btn sm primary" href="/login">Sign in</Link>}
+              </div>
             </div>
+          </aside>
+          <div className="content">
+            <main id="main"><div className="wrap">{children}</div></main>
+            <footer className="foot"><div className="wrap">Demand Desk recommends; it never orders. Gemini writes explanations only. Every number comes from the rule engine.</div></footer>
           </div>
-        </header>
-        <main id="main"><div className="wrap">{children}</div></main>
-        <footer className="foot"><div className="wrap">Demand Desk recommends; it never orders. Gemini writes explanations only. Every number comes from the rule engine.</div></footer>
+        </div>
       </body>
     </html>
   );

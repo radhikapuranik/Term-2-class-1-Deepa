@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Hero } from "@/components/Hero";
 import { Banners } from "@/components/DeskBanners";
 import { Badge, GLOSSARY, Term } from "@/components/ui";
-import { isDemoData, latestRun, previewRecs, recsForRun, urgencyRank } from "@/lib/queries";
+import { festivalMonths, isDemoData, latestRun, previewRecs, recsForRun, totalSales, urgencyRank } from "@/lib/queries";
+import { SalesChart } from "@/components/SalesChart";
+import { query } from "@/lib/db";
 import { n0 } from "@/lib/format";
 import { RunNow } from "@/components/RunNow";
 import { DecisionQueue } from "@/components/DecisionQueue";
@@ -25,6 +27,15 @@ export default async function Today({ searchParams }: PageProps<"/">) {
   const ok = recs.filter((r) => r.status === "ok").length;
   const exc = recs.filter((r) => r.exceptions.length > 0 && r.status !== "ok" || r.action === "review");
   const excWaiting = recs.filter((r) => r.exceptions.length > 0 && open(r));
+  const [totals, cal, dn] = await Promise.all([totalSales(), festivalMonths(), query<{ distributor_id: string; distributor_name: string }>("SELECT distributor_id, distributor_name FROM distributors")]);
+  const fest = new Map(cal.map((c) => [c.year_month, c.is_festival_month]));
+  const last12 = totals.slice(-12);
+  const totalAvg = last12.length ? last12.reduce((a, b) => a + b.units_sold, 0) / last12.length : null;
+  const names = new Map(dn.map((d) => [d.distributor_id, d.distributor_name]));
+  const openNeeds = needs.filter(open);
+  const byDistMap = new Map<string, { name: string; n: number }>();
+  for (const r of openNeeds) byDistMap.set(r.distributor_id, { name: names.get(r.distributor_id) ?? "", n: (byDistMap.get(r.distributor_id)?.n ?? 0) + 1 });
+  const byDist = [...byDistMap].sort((a, b) => b[1].n - a[1].n);
   const decided = recs.filter((r) => !open(r)).length;
   return (
     <>
@@ -32,15 +43,21 @@ export default async function Today({ searchParams }: PageProps<"/">) {
       <Hero count={needs.length} total={recs.length}
         label={`${stock} at stockout risk, ${over} overstocked, ${high} with rising demand. ${decided} already decided. Nothing is ordered until a person approves it.`} />
       <div style={{ marginBottom: 14 }}><RunNow signedIn={!!user} /></div>
-      <div className="chips" role="list" aria-label="Status counts">
-        <Link role="listitem" className="chip" href="/recommendations?status=stockout"><Badge kind="stockout">Stockout risk</Badge> <b>{stock}</b></Link>
-        <Link role="listitem" className="chip" href="/recommendations?status=high"><Badge kind="high">High demand</Badge> <b>{high}</b></Link>
-        <Link role="listitem" className="chip" href="/recommendations?status=overstock"><Badge kind="over">Overstock</Badge> <b>{over}</b></Link>
-        <Link role="listitem" className="chip" href="/recommendations?status=ok"><Badge kind="ok">OK</Badge> <b>{ok}</b></Link>
-        <Link role="listitem" className="chip" href="/exceptions"><Badge kind="exception">Exceptions</Badge> <b>{excWaiting.length}</b></Link>
+      <div className="kpis" role="list" aria-label="Status counts">
+        {([
+          ["/recommendations?status=stockout", "stockout", "Stockout risk", stock, "var(--stockout)"],
+          ["/recommendations?status=high", "high", "High demand", high, "var(--high)"],
+          ["/recommendations?status=overstock", "over", "Overstock", over, "var(--over)"],
+          ["/recommendations?status=ok", "ok", "Healthy", ok, "var(--ok)"],
+          ["/exceptions", "exception", "Exceptions waiting", excWaiting.length, "var(--ink)"],
+        ] as const).map(([href, kind, label, n, color]) => (
+          <Link key={label} role="listitem" href={href} className="kpi-card" style={{ ["--accent" as string]: color }}>
+            <Badge kind={kind}>{label}</Badge>
+            <div className="num">{n}</div>
+            <div className="bar" aria-hidden="true"><i style={{ width: `${recs.length ? (n / recs.length) * 100 : 0}%` }} /></div>
+          </Link>
+        ))}
       </div>
-
-      <hr className="rule" />
       <div className="grid">
         <section className="col-8" aria-labelledby="needs">
           <h2 id="needs">Needs a decision</h2>
@@ -66,6 +83,23 @@ export default async function Today({ searchParams }: PageProps<"/">) {
           {excWaiting.length > 0 && <p style={{ marginTop: 12 }}><Link href="/exceptions">Open the queue ({excWaiting.length}) →</Link></p>}
           <p className="small muted" style={{ marginTop: 18 }}>{n0(exc.length)} flagged this run. {run.warnings.length > 0 && <b>{run.warnings[0]}</b>}</p>
         </aside>
+      </div>
+
+      <div className="grid" style={{ marginTop: 16 }}>
+        <section className="col-8 card" aria-labelledby="trend">
+          <div className="section-h"><h2 id="trend">Total weekly units, all SKUs</h2><span className="small muted">dashed: 12-week average</span></div>
+          <SalesChart sales={totals} festival={fest} avg12={totalAvg} windowWeeks={12} title="Total weekly units sold across all SKUs" />
+        </section>
+        <section className="col-4 card" aria-labelledby="dist">
+          <h2 id="dist">Open decisions by distributor</h2>
+          <p className="small muted">SKUs waiting on a decision, grouped by who the order goes to.</p>
+          <ul className="dlist">
+            {byDist.map(([id, d]) => (
+              <li key={id}><span><b>{id}</b> <span className="muted small">{d.name}</span></span><b className="mono">{d.n}</b>
+                <span className="meter" aria-hidden="true"><i style={{ width: `${(d.n / Math.max(1, needs.length)) * 100}%` }} /></span></li>
+            ))}
+          </ul>
+        </section>
       </div>
     </>
   );
