@@ -16,14 +16,14 @@ export function KillSwitch({ off, reason, when }: { off: boolean; reason?: strin
   return (
     <section id="kill-switch" className="card" style={{ marginTop: 16, borderColor: off ? "var(--stockout)" : undefined }} aria-labelledby="ks">
       <h2 id="ks">Kill switch</h2>
-      <p className="muted small" style={{ maxWidth: "64ch" }}>Stops the scheduled run, Run now, data pushes, Gemini calls, alerts and Zoho pushes. Past data stays readable and people can still record decisions. It is never pressed automatically.</p>
+      <p className="muted small" style={{ maxWidth: "64ch" }}>Stops the scheduled run, Run now, data pushes, Gemini calls, and alerts. Past data stays readable and people can still record decisions. It is never pressed automatically.</p>
       {off ? (
         <div>
           <div className="banner bad" role="status">Switched off: {reason}{when ? `, ${when}` : ""}.</div>
-          <button className="btn primary" disabled={pending} onClick={() => { if (window.confirm("Switch Demand Desk back on? Scheduled runs, pushes, Gemini, alerts and Zoho will work again.")) go(switchBackOn); }}>Switch back on</button>
+          <button className="btn primary" disabled={pending} onClick={() => { if (window.confirm("Switch Demand Desk back on? Scheduled runs, pushes, Gemini and alerts will work again.")) go(switchBackOn); }}>Switch back on</button>
         </div>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); if (window.confirm("Switch Demand Desk off? Runs, pushes, Gemini, alerts and Zoho will stop until someone switches it back on.")) go((n) => killSwitch(text, n)); }} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
+        <form onSubmit={(e) => { e.preventDefault(); if (window.confirm("Switch Demand Desk off? Runs, pushes, Gemini and alerts will stop until someone switches it back on.")) go((n) => killSwitch(text, n)); }} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
           <div><label htmlFor="kr">Reason (required)</label><input id="kr" value={text} onChange={(e) => setText(e.target.value)} style={{ width: 340 }} placeholder="e.g. Override rate stayed above 40%" required minLength={5} /></div>
           <button className="btn danger" disabled={pending}>■ Switch off</button>
         </form>

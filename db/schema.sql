@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS kill_log (id bigserial PRIMARY KEY, action text NOT N
 CREATE TABLE IF NOT EXISTS rate_hits (key text NOT NULL, at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS rate_hits_idx ON rate_hits (key, at DESC);
 CREATE TABLE IF NOT EXISTS alerts (id bigserial PRIMARY KEY, kind text NOT NULL, message text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), read boolean NOT NULL DEFAULT false);
-CREATE TABLE IF NOT EXISTS zoho_pushes (reference text PRIMARY KEY, run_id bigint NOT NULL, distributor_id text NOT NULL, po_id text, po_number text, status text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE recommendations DROP CONSTRAINT IF EXISTS recommendations_decision_status_check;
 UPDATE recommendations SET decision_status='Disapproved' WHERE decision_status='Overridden';
 UPDATE decisions SET decision='Disapproved' WHERE decision='Overridden';
+DROP TABLE IF EXISTS zoho_pushes;

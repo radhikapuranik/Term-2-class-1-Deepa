@@ -11,11 +11,11 @@ cp .env.example .env.local      # then fill the values below
 npm run migrate                 # creates the tables (safe to repeat)
 npm run seed                    # loads data/seed/*.csv and makes the first run
 npm run dev                     # http://localhost:3000
-npm test                        # 74 tests, includes the golden table, kill switch and Zoho drafts
+npm test                        # tests, includes the golden table, and the kill switch
 ```
 
 ## Access: no login
-This is a demo site. Anyone with the link can use every page. Actions ask for a display name (saved in the browser, shown in the decision log). Guardrails: write actions are rate-limited per IP, Run now has a 5-minute cooldown, and Zoho purchase orders are created as drafts only. `CRON_SECRET` and `INGEST_TOKEN` are machine-only tokens.
+This is a demo site. Anyone with the link can use every page. Actions ask for a display name (saved in the browser, shown in the decision log). Guardrails: write actions are rate-limited per IP, Run now has a 5-minute cooldown,  `CRON_SECRET` and `INGEST_TOKEN` are machine-only tokens.
 
 ## Environment variables (names only; values live in `.env.local` and Vercel)
 | Name | What it is |
@@ -23,24 +23,22 @@ This is a demo site. Anyone with the link can use every page. Actions ask for a 
 | `DATABASE_URL` | Neon Postgres connection string |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Gemini key and the Flash model name (currently `gemini-3.8-flash`) |
 | `DIGEST_TO_EMAIL` | Who gets the Monday and Thursday alert (sent through Zoho Mail) |
-| `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET` | One Zoho Self Client on the India data centre |
+| `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET` | One Zoho Self Client on the India data centre (Zoho Mail only) |
 | `ZOHO_REFRESH_TOKEN` | Made from the one-time grant code (`ZOHO_GRANT_CODE`, which is deleted after use) |
-| `ZOHO_ORG_ID` | Zoho Inventory organisation ID (needed for purchase-order drafts) |
 | `ZOHO_DC` | `in` (accounts.zoho.in, zohoapis.in, mail.zoho.in) |
 | `CRON_SECRET`, `INGEST_TOKEN` | Machine tokens for the scheduler and for IT's SAP push |
 | `APP_URL`, `SIMULATE_FAIL` | Public address; test-only failure switch (`gemini`, `email`) |
 
-Zoho scopes: `ZohoInventory.purchaseorders.CREATE, ZohoInventory.purchaseorders.READ, ZohoInventory.items.READ, ZohoInventory.contacts.READ, ZohoMail.messages.CREATE, ZohoMail.accounts.READ`. If Zoho says a permission is missing, the app shows the scope string to use.
+Zoho scopes: `ZohoMail.messages.CREATE,ZohoMail.accounts.READ`. If Zoho says a permission is missing, the app shows the scope string to use.
 
 ## Approve and Disapprove
-Each row has Approve (green tick) and Disapprove (red cross, reason required); Edit quantity and Defer are smaller actions. Keys: J/K move, A approve, X disapprove, E edit, D defer, U undo (8 seconds). Only Approved lines (and Edited ones, which are approvals with a changed quantity) reach the Order sheet and Zoho. Override rate = (disapproved + edited) / decided.
+Each row has Approve (green tick) and Disapprove (red cross, reason required); Edit quantity and Defer are smaller actions. Keys: J/K move, A approve, X disapprove, E edit, D defer, U undo (8 seconds). Only Approved lines (and Edited ones, which are approvals with a changed quantity) reach the Order sheet. Override rate = (disapproved + edited) / decided.
 
 ## Kill switch
-Impact page, "Kill switch": asks for a reason, then stops the scheduled run, Run now, data pushes, Gemini calls, alerts and Zoho pushes, with a clear message each. A red banner and a header chip show the state. Past data stays readable; decisions can still be recorded. "Switch back on" asks for confirmation. Every kill and revive is logged on the Runs page. It is never pressed automatically; kill-criteria tiles only say "Consider switching off".
+Impact page, "Kill switch": asks for a reason, then stops the scheduled run, Run now, data pushes, Gemini calls, alerts and with a clear message each. A red banner and a header chip show the state. Past data stays readable; decisions can still be recorded. "Switch back on" asks for confirmation. Every kill and revive is logged on the Runs page. It is never pressed automatically; kill-criteria tiles only say "Consider switching off".
 
-## Zoho
-- **Alerts:** Monday and Thursday alert goes through Zoho Mail (3 tries). If it fails, a message appears under the bell (Alerts page) saying in plain words what to switch on.
-- **Purchase orders:** Orders page, *Send to Zoho (draft)* creates one DRAFT purchase order per distributor, reference `DD-<run id>-<Distributor_ID>`. It checks for that reference first (no duplicates), never confirms or sends, and lists unmatched vendors or items in plain English and skips them. Vendors are matched by exact distributor name; items by SKU code, then name.
+## Zoho Mail (alerts only)
+The Monday and Thursday alert goes through Zoho Mail (3 tries). If it fails, a message appears under the bell (Alerts page) saying in plain words what to switch on. There is no Zoho Inventory link: the Order sheet (Orders page) is downloaded as CSV or printed, and a person places the orders.
 
 ## How to add data
 - **By hand:** Data page, choose any of the 5 CSVs, press *Check files*, then *Save and run analysis*. A bad file is refused whole; nothing is half-saved.

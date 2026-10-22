@@ -1,5 +1,5 @@
-/** Zoho Self Client on one data centre (default India: accounts.zoho.in, zohoapis.in). Keys come from the environment only. */
-export const SCOPES = "ZohoInventory.purchaseorders.CREATE,ZohoInventory.purchaseorders.READ,ZohoInventory.items.READ,ZohoInventory.contacts.READ,ZohoMail.messages.CREATE,ZohoMail.accounts.READ";
+/** Zoho Self Client (Zoho Mail only) on one data centre (default India: accounts.zoho.in). Keys come from the environment only. */
+export const SCOPES = "ZohoMail.messages.CREATE,ZohoMail.accounts.READ";
 
 const dc = () => process.env.ZOHO_DC || "in";
 export const hosts = () => ({ accounts: `https://accounts.zoho.${dc()}`, api: `https://www.zohoapis.${dc()}`, mail: `https://mail.zoho.${dc()}` });

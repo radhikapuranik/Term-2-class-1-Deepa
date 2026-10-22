@@ -16,7 +16,6 @@ import { blocked, getKill, reviveKill, setKill, type Feature } from "@/lib/kill"
 import { GET as cron } from "@/app/api/cron/analyze/route";
 import { POST as ingest } from "@/app/api/ingest/route";
 import { runNow } from "@/app/run-now";
-import { pushDrafts } from "@/lib/zohoOrders";
 import { explainOne } from "@/lib/gemini";
 import { sendDigest } from "@/lib/email";
 import { runEngine } from "@/lib/rules/engine";
@@ -27,25 +26,23 @@ beforeEach(() => { process.env.CRON_SECRET = "cron-secret"; process.env.INGEST_T
 
 describe("kill switch", () => {
   it("is off by default and blocks nothing", async () => {
-    for (const f of ["cron", "run", "ingest", "gemini", "alerts", "zoho"] as Feature[]) expect(await blocked(f)).toBeNull();
+    for (const f of ["cron", "run", "ingest", "gemini", "alerts"] as Feature[]) expect(await blocked(f)).toBeNull();
   });
   it("gives a clear message for every feature once switched off, and logs kill and revive", async () => {
     await setKill("override rate too high", "Raghav");
-    for (const f of ["cron", "run", "ingest", "gemini", "alerts", "zoho"] as Feature[]) expect(await blocked(f)).toMatch(/switched off: override rate too high/);
+    for (const f of ["cron", "run", "ingest", "gemini", "alerts"] as Feature[]) expect(await blocked(f)).toMatch(/switched off: override rate too high/);
     expect((await getKill())?.by).toBe("Raghav");
     await reviveKill("Raghav");
     expect(await getKill()).toBeNull();
     expect(log.length).toBe(2);
   });
-  it("blocks the cron route, ingest, Run now and Zoho pushes", async () => {
+  it("blocks the cron route, ingest and Run now", async () => {
     await setKill("test", "T");
     const c = await cron(new Request("http://x/api/cron/analyze", { headers: { authorization: "Bearer cron-secret" } }));
     expect(c.status).toBe(503);
     const i = await ingest(new Request("http://x/api/ingest", { method: "POST", headers: { authorization: "Bearer ingest-token", "content-type": "application/json" }, body: "{}" }));
     expect(i.status).toBe(503);
     expect((await runNow("Tester")).message).toMatch(/switched off/);
-    process.env.ZOHO_ORG_ID = "1";
-    expect((await pushDrafts("T")).message).toMatch(/switched off/);
   });
   it("stops Gemini calls (plain template) and alert emails", async () => {
     await setKill("test", "T");
