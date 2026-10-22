@@ -1,7 +1,7 @@
 :root {
   --bg: #F6F4EE; --surface: #FFFFFF; --ink: #14211B; --muted: #5E6B63; --hair: #E2DFD4;
   --brand: #1F6B45; --brand-ink: #FFFFFF; --hl: #FFD84D;
-  --stockout: #C0392B; --high: #B7791F; --over: #2563A8; --ok: #1F7A4D;
+  --stockout: #C0392B; --high: #B7791F; --high-text: #8A5A12; --over: #2563A8; --ok: #1F7A4D;
   --stockout-bg: #C0392B14; --high-bg: #B7791F14; --over-bg: #2563A814; --ok-bg: #1F7A4D14;
   --zone: #1F7A4D22; --shade: #14211B0A; --fest: #FFD84D55;
   --f-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
@@ -13,7 +13,7 @@
   :root:not([data-theme="light"]) {
     --bg: #0E1411; --surface: #151D18; --ink: #E8EFEA; --muted: #9AA89F; --hair: #26322B;
     --brand: #5DBE8A; --brand-ink: #0E1411; --hl: #E0B72F;
-    --stockout: #FF8A7A; --high: #F5B94B; --over: #7DB2F2; --ok: #6FD39B;
+    --stockout: #FF8A7A; --high: #F5B94B; --high-text: #F5B94B; --over: #7DB2F2; --ok: #6FD39B;
     --stockout-bg: #FF8A7A1F; --high-bg: #F5B94B1F; --over-bg: #7DB2F21F; --ok-bg: #6FD39B1F;
     --zone: #6FD39B26; --shade: #E8EFEA0D; --fest: #E0B72F40; color-scheme: dark;
   }
@@ -21,7 +21,7 @@
 :root[data-theme="dark"] {
   --bg: #0E1411; --surface: #151D18; --ink: #E8EFEA; --muted: #9AA89F; --hair: #26322B;
   --brand: #5DBE8A; --brand-ink: #0E1411; --hl: #E0B72F;
-  --stockout: #FF8A7A; --high: #F5B94B; --over: #7DB2F2; --ok: #6FD39B;
+  --stockout: #FF8A7A; --high: #F5B94B; --high-text: #F5B94B; --over: #7DB2F2; --ok: #6FD39B;
   --stockout-bg: #FF8A7A1F; --high-bg: #F5B94B1F; --over-bg: #7DB2F21F; --ok-bg: #6FD39B1F;
   --zone: #6FD39B26; --shade: #E8EFEA0D; --fest: #E0B72F40; color-scheme: dark;
 }
@@ -103,7 +103,7 @@ label { font-size: .85rem; color: var(--muted); display: block; margin-bottom: 4
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 7px; border-radius: 6px; font: 600 .78rem/1.3 var(--f-text); border: 1px solid currentColor; white-space: nowrap; }
 .badge svg { width: 13px; height: 13px; flex: none; }
 .b-stockout { color: var(--stockout); background: var(--stockout-bg); }
-.b-high { color: var(--high); background: var(--high-bg); }
+.b-high { color: var(--high-text); background: var(--high-bg); }
 .b-over { color: var(--over); background: var(--over-bg); }
 .b-ok { color: var(--ok); background: var(--ok-bg); }
 .b-exception { color: var(--ink); background: transparent; }
