@@ -191,3 +191,16 @@ kbd { font: 500 .75rem var(--f-mono); border: 1px solid var(--hair); border-bott
   .card { border: 0; padding: 0; break-inside: avoid; }
 }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } * { scroll-behavior: auto !important; } }
+
+.qrow { display: grid; gap: 12px; grid-template-columns: minmax(160px, 1.2fr) minmax(150px, 1fr) minmax(190px, 1.4fr); }
+.qrow.one { grid-template-columns: 1fr; }
+.qrow > * { min-width: 0; }
+.btn { white-space: nowrap; }
+@media (max-width: 760px) {
+  .qrow { grid-template-columns: 1fr; }
+  .site-head .wrap { flex-wrap: wrap; gap: 4px 12px; padding-top: 8px; padding-bottom: 4px; }
+  .nav { order: 3; flex: 1 0 100%; }
+  .head-tools { margin-left: auto; }
+  .brand small { display: none; }
+  main { padding-top: 18px; }
+}

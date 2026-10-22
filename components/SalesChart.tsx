@@ -38,7 +38,7 @@ export function SalesChart({ sales, festival, avg12, windowWeeks, annotation, ti
       {festSpans.map((s) => (
         <g key={s.a}>
           <rect className="fest" x={x(s.a) - step / 2} y={T} width={(s.b - s.a + 1) * step} height={H - T - B} />
-          <text x={x(s.a) - step / 2 + 4} y={T + 12} className="t-ink">Festival ({monthLabel(s.ym)})</text>
+          <text x={x(s.b) + step / 2 - 4} y={T + 12} textAnchor="end" className="t-ink">Festival ({monthLabel(s.ym)})</text>
         </g>
       ))}
       <rect className="l4" x={x(l4) - step / 2} y={T} width={(n - l4) * step} height={H - T - B} />
@@ -60,7 +60,7 @@ export function SalesChart({ sales, festival, avg12, windowWeeks, annotation, ti
       {sales.map((s, i) => (i % 3 === 0 || i === n - 1) && (
         <text key={s.week} x={x(i)} y={H - B + 16} textAnchor="middle">{s.week.slice(5)}</text>
       ))}
-      <text x={W - R} y={y(last.units_sold) - 9} textAnchor="end" className="t-ink">{last.units_sold} units</text>
+      <text x={x(n - 1) - 8} y={y(last.units_sold) + 18} textAnchor="end" className="t-ink">{last.units_sold} units</text>
       {annotation && (
         <g>
           <circle className={`mark-${annotation.kind}`} cx={W - R - 4} cy={H - 10} r={4} />

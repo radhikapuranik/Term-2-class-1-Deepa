@@ -89,8 +89,8 @@ export function DecisionQueue({ recs, signedIn, keyboard = false, variant = "tab
           const v = view(r);
           const isActive = i === active && keyboard;
           return (
-            <li key={r.sku_id} className="card" style={{ padding: 14, boxShadow: isActive ? "inset 0 0 0 2px var(--brand)" : undefined }} onClick={() => keyboard && setActive(i)} aria-current={isActive || undefined}>
-              {!actionsOnly && <div style={{ display: "grid", gap: 12, gridTemplateColumns: variant === "cards" ? "1fr" : "minmax(160px,1.2fr) minmax(150px,1fr) minmax(190px,1.4fr)" }} className="qrow">
+            <li key={r.sku_id} className={actionsOnly ? undefined : "card"} style={{ padding: actionsOnly ? 0 : 14, boxShadow: isActive ? "inset 0 0 0 2px var(--brand)" : undefined }} onClick={() => keyboard && setActive(i)} aria-current={isActive || undefined}>
+              {!actionsOnly && <div className={`qrow${variant === "cards" ? " one" : ""}`}>
                 <div>
                   <Link className="sku-link" href={`/sku/${r.sku_id}`}>{r.sku_name.replace("Freshroots ", "")}</Link>
                   <span className="sku-code">{r.sku_id}</span>
