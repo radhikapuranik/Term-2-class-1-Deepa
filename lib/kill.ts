@@ -1,7 +1,7 @@
 import { query } from "./db";
 
 export interface Kill { on: boolean; reason: string; at: string; by: string }
-export type Feature = "cron" | "run" | "ingest" | "gemini" | "alerts";
+export type Feature = "cron" | "run" | "ingest" | "gemini" | "alerts" | "zoho";
 
 export async function getKill(): Promise<Kill | null> {
   const r = await query<{ value: Kill }>("SELECT value FROM app_state WHERE key='kill'");
@@ -10,7 +10,7 @@ export async function getKill(): Promise<Kill | null> {
 
 const WHAT: Record<Feature, string> = {
   cron: "The scheduled run was skipped.", run: "Run now is disabled.", ingest: "Data pushes are refused. Nothing was saved.",
-  gemini: "Gemini was not called; plain explanations are shown.", alerts: "No alert email or bell message was sent.",
+  gemini: "Gemini was not called; plain explanations are shown.", alerts: "No alert email or bell message was sent.", zoho: "Nothing was sent to Zoho.",
 };
 export const killMessage = (k: Kill, f: Feature) => `Demand Desk is switched off: ${k.reason}. ${WHAT[f]} Switch it back on from the Impact page.`;
 

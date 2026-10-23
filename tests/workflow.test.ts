@@ -30,6 +30,12 @@ describe("Approve / Disapprove flow", () => {
     expect(r).toMatchObject({ ok: true, status: "Disapproved", finalQty: 0 });
     expect(decisions.at(-1)?.reason_code).toBe("Shelf-life concern");
   });
+  it("approve is refused when there is no recommended quantity", async () => {
+    const saved = rec.qty; (rec as { qty: number | null }).qty = null;
+    const r = await applyDecision(1, { kind: "approve" }, "R");
+    (rec as { qty: number | null }).qty = saved;
+    expect(r.ok).toBe(false);
+  });
   it("edit needs a reason; defer needs none", async () => {
     expect((await applyDecision(1, { kind: "edit", qty: 450, reason: "" }, "R")).ok).toBe(false);
     expect(await applyDecision(1, { kind: "edit", qty: 450, reason: "festival" }, "R")).toMatchObject({ status: "Edited", finalQty: 450 });

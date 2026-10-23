@@ -141,7 +141,7 @@ function ActionBar({ r, v, panelOpen, setPanel, act }: {
   const [qty, setQty] = useState(String(r.final_qty ?? r.qty ?? r.advisoryTopUp ?? 0));
   const [reason, setReason] = useState("");
   const [code, setCode] = useState<string>(REASONS[0]);
-  const noQty = r.action === "review";
+  const noQty = r.qty == null;
   return (
     <div style={{ marginTop: 12 }} className="no-print">
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }} role="group" aria-label={`Decide for ${r.sku_id}`}>

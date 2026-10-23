@@ -24,6 +24,7 @@ export async function applyDecision(recId: number, input: DecideInput, who: stri
   let reasonText: string | null = null;
   if (input.kind === "approve") {
     if (rec.action === "review") return { ok: false, error: "This SKU has conflicting signals and no quantity. Edit the quantity, disapprove, or defer." };
+    if (rec.qty == null) return { ok: false, error: "This SKU has no recommended quantity. Use Edit qty to set one, or Disapprove or Defer." };
     finalQty = rec.qty;
   } else if (input.kind === "edit") {
     if (!Number.isInteger(input.qty) || input.qty < 0 || input.qty > 1_000_000) return { ok: false, error: "Quantity must be a whole number from 0 up." };

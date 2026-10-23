@@ -15,7 +15,7 @@ export default function Page() {
         <li><b>Rules run (code).</b> Every number and flag comes from tested functions, not from AI.</li>
         <li><b>Gemini explains (words only).</b> For the exceptions, it writes a plain explanation and a question. Its output is checked: no new numbers, no links, no other SKUs.</li>
         <li><b>Raghav decides.</b> Approve, disapprove (with a reason), edit the quantity, or defer. Each choice is logged with a name, time and reason.</li>
-        <li><b>Order sheet.</b> Approved lines are grouped by distributor into an order sheet (print or CSV download). A person places the orders.</li>
+        <li><b>Order sheet.</b> Approved lines appear on the order sheet at once, grouped by distributor (print or CSV), and become DRAFT purchase orders in Zoho Inventory. Procurement reviews and sends them from Zoho.</li>
       </ol>
 
       <h2 style={{ margin: "28px 0 8px" }}>The rules (editable on the Rules page)</h2>
@@ -41,7 +41,7 @@ export default function Page() {
       <ul>
         <li>The seed is a sample: 15 SKUs and 4 distributors, shown as demo data. The real business has about 400 SKUs and 1,200 distributors.</li>
         <li>There are no prices in the data, so no rupee values are shown except the baseline from the case brief.</li>
-        <li>No live SAP link: files in, a CSV order sheet out. A kill switch on the Impact page stops everything.</li>
+        <li>No live SAP link: files in. Zoho receives drafts only, never confirmed purchase orders. A kill switch on the Impact page stops everything.</li>
         <li>The 12-week baseline defaults to the last 12 weeks including the last 4. The other reading (the 12 weeks before the last 4) is a setting.</li>
         <li>The stale-data panel is a simple back-test on sample data, not a forecast accuracy claim.</li>
       </ul>

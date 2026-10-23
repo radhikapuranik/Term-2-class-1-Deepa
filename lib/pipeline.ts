@@ -5,6 +5,7 @@ import { loadDataset, loadSettings } from "./store";
 import { MAX_EXPLAINED, explainOne, templateExplanation } from "./gemini";
 import { sendDigest } from "./email";
 import { blocked } from "./kill";
+import { reconcileOpen } from "./zohoSync";
 
 type Statement = { text: string; params?: unknown[] };
 
@@ -23,6 +24,7 @@ export async function runAnalysis(trigger: "seed" | "manual" | "cron" | "ingest"
     const [ds, settings] = await Promise.all([loadDataset(), loadSettings()]);
     const out = runEngine({ ...ds, settings, upliftOverride: opts.upliftOverride });
     await saveRun(run.id, out);
+    if (notify) await reconcileOpen().catch(() => {});
     if (notify) {
       await setStage(run.id, "explaining");
       await explainAll(run.id, out);
@@ -39,6 +41,16 @@ export async function runAnalysis(trigger: "seed" | "manual" | "cron" | "ingest"
 }
 
 const rank = (r: SkuResult) => (r.urgent ? 0 : r.action === "review" ? 1 : r.status === "stockout" ? 2 : r.status === "exception" ? 3 : r.action === "pause" ? 4 : 5) * 1000 + (r.cover ?? 999);
+/** Approvals from the previous run (under 7 days old) stay approved when the same reorder is still recommended, so a new run never hides them. */
+const CARRY_SQL = `WITH prev AS (SELECT id FROM runs WHERE status='ok' AND id < $1 AND started_at > now() - interval '7 days' ORDER BY id DESC LIMIT 1),
+c AS (UPDATE recommendations n SET decision_status=p.decision_status, final_qty=p.final_qty, order_run_id=p.order_run_id
+      FROM recommendations p, prev WHERE n.run_id=$1 AND p.run_id=prev.id AND p.sku_id=n.sku_id
+        AND p.decision_status IN ('Approved','Edited') AND p.final_qty > 0 AND p.action='reorder' AND n.action='reorder'
+      RETURNING n.id, n.sku_id, p.id AS pid, p.decision_status AS ds, p.final_qty AS fq)
+INSERT INTO decisions (recommendation_id, sku_id, decision, final_qty, reason_code, reason_text, decided_by, decided_at, prev_status)
+SELECT c.id, c.sku_id, c.ds, c.fq, 'carried', 'Carried forward from the previous run', d.decided_by, d.decided_at, 'Recommended'
+FROM c JOIN LATERAL (SELECT decided_by, decided_at FROM decisions WHERE recommendation_id=c.pid AND undone=false ORDER BY id DESC LIMIT 1) d ON true`;
+
 const setStage = (id: number, stage: string) => query("UPDATE runs SET stage=$2 WHERE id=$1", [id, stage]);
 
 /** Gemini explains the exceptions only. A failure here never stops the run. */
@@ -73,8 +85,8 @@ async function saveRun(runId: number, out: EngineOutput) {
   for (const r of out.results) {
     const row = resultToRow(r);
     st.push({
-      text: `INSERT INTO recommendations (run_id, sku_id, status, action, qty, cover_after, high_demand, urgent, metrics, flags, rule_trace)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (run_id, sku_id) DO NOTHING`,
+      text: `INSERT INTO recommendations (run_id, order_run_id, sku_id, status, action, qty, cover_after, high_demand, urgent, metrics, flags, rule_trace)
+             VALUES ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (run_id, sku_id) DO NOTHING`,
       params: [runId, r.sku_id, r.status, r.action, r.qty, r.coverAfter, r.highDemand, r.urgent,
         JSON.stringify(row.metrics), JSON.stringify(row.flags), JSON.stringify(row.trace)],
     });
@@ -86,6 +98,7 @@ async function saveRun(runId: number, out: EngineOutput) {
       });
     }
   }
+  st.push({ text: CARRY_SQL, params: [runId] });
   st.push({
     text: `UPDATE runs SET status='ok', stage='done', as_of=$2, uplift_applied=$3, warnings=$4, summary=$5, finished_at=now() WHERE id=$1`,
     params: [runId, out.asOf, out.upliftApplied, JSON.stringify(out.warnings), JSON.stringify(out.summary)],

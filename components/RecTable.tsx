@@ -28,7 +28,7 @@ export function RecTable({ recs, initialStatus, distributors, readOnly }: { recs
   const router = useRouter();
   const canAct = !readOnly;
   const [bulkReason, setBulkReason] = useState<string>(OVERRIDE_REASONS[0]);
-  const approveable = (r: Rec) => r.id != null && r.action !== "review" && r.action !== "none" && (r.decision_status === "Recommended" || r.decision_status === "Deferred");
+  const approveable = (r: Rec) => r.id != null && r.qty != null && (r.decision_status === "Recommended" || r.decision_status === "Deferred");
   const [trace, setTrace] = useState<Record<string, TraceLine[]>>({});
   const cats = useMemo(() => [...new Set(recs.map((r) => r.category))].sort(), [recs]);
 
@@ -139,7 +139,7 @@ function QuickDecide({ r }: { r: Rec }) {
   return (
     <div style={{ marginTop: 8 }} className="no-print">
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <button className="btn sm approve" disabled={r.action === "review" || r.action === "none"} onClick={() => run({ kind: "approve" }, "Approved")}>✓ Approve</button>
+        <button className="btn sm approve" disabled={r.qty == null} onClick={() => run({ kind: "approve" }, "Approved")}>✓ Approve</button>
         <button className="btn sm disapprove" onClick={() => setAsk(!ask)} aria-expanded={ask}>✕ Disapprove</button>
         {status !== "Recommended" && <span className="badge b-decision">{status}</span>}
       </div>

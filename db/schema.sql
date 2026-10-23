@@ -78,3 +78,8 @@ ALTER TABLE recommendations DROP CONSTRAINT IF EXISTS recommendations_decision_s
 UPDATE recommendations SET decision_status='Disapproved' WHERE decision_status='Overridden';
 UPDATE decisions SET decision='Disapproved' WHERE decision='Overridden';
 DROP TABLE IF EXISTS zoho_pushes;
+ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS order_run_id bigint;
+UPDATE recommendations SET order_run_id = run_id WHERE order_run_id IS NULL;
+UPDATE recommendations SET decision_status='Recommended', final_qty=NULL WHERE decision_status IN ('Approved','Edited') AND (final_qty IS NULL);
+CREATE TABLE IF NOT EXISTS zoho_sync (recommendation_id bigint PRIMARY KEY, reference text NOT NULL, status text NOT NULL, po_id text, po_number text, detail text, missing jsonb, attempts integer NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS zoho_locks (reference text PRIMARY KEY, locked_at timestamptz NOT NULL);

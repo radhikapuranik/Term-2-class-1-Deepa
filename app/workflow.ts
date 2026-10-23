@@ -1,8 +1,16 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { markPending, syncForRec } from "@/lib/zohoSync";
 import { applyDecision, undoDecision, type DecideInput } from "@/lib/decisions";
 import { query } from "@/lib/db";
 import { guard } from "@/lib/security";
+
+/** Zoho work runs after the response is sent, so Approve stays instant. */
+async function queueSync(recIds: number[], mark: boolean) {
+  if (mark) for (const id of recIds) await markPending(id).catch(() => {});
+  after(async () => { for (const id of recIds) await syncForRec(id).catch(() => {}); });
+}
 
 const refresh = () => { revalidatePath("/"); revalidatePath("/orders"); revalidatePath("/exceptions"); revalidatePath("/recommendations"); };
 
@@ -10,7 +18,7 @@ export async function decide(recId: number, input: DecideInput, name: string) {
   const g = await guard(name);
   if (!g.ok) return { ok: false as const, error: g.error };
   const res = await applyDecision(recId, input, g.who);
-  if (res.ok) refresh();
+  if (res.ok) { refresh(); await queueSync([recId], input.kind === "approve" || input.kind === "edit"); }
   return res;
 }
 
@@ -19,6 +27,7 @@ export async function undo(decisionId: number, name: string) {
   if (!g.ok) return { ok: false as const, error: g.error };
   const res = await undoDecision(decisionId);
   refresh();
+  if (res.ok && res.recId) await queueSync([res.recId], false);
   return res;
 }
 
@@ -34,6 +43,7 @@ async function bulk(recIds: number[], input: DecideInput, name: string): Promise
     if (r.ok) done.push({ id, decisionId: r.decisionId, status: r.status, finalQty: r.finalQty }); else skipped++;
   }
   refresh();
+  await queueSync(done.map((d) => d.id), input.kind === "approve");
   return { ok: true, done, skipped };
 }
 

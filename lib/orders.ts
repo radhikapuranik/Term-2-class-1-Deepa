@@ -1,16 +1,25 @@
 import { query } from "./db";
 
+/** Approved lines, plus Edited lines (an approval with a changed quantity), from the latest run. */
 export interface OrderLine {
-  /** Approved lines, plus Edited lines (an approval with a changed quantity). */ sku_id: string; sku_name: string; distributor_id: string; distributor_name: string; qty: number; unit: string; status: string; note: string | null }
+  rec_id: number; order_run: number; sku_id: string; sku_name: string; distributor_id: string; distributor_name: string;
+  qty: number; unit: string; status: string; note: string | null; approved_by: string | null; approved_at: string | null;
+  zoho_status: string | null; po_number: string | null; po_id: string | null; zoho_detail: string | null;
+  zoho_missing: { vendor?: string; item?: string } | null;
+}
 
 export async function orderLines(): Promise<{ runId: number | null; lines: OrderLine[] }> {
   const run = await query<{ id: number }>("SELECT id FROM runs WHERE status='ok' ORDER BY id DESC LIMIT 1");
   if (!run[0]) return { runId: null, lines: [] };
   const lines = await query<OrderLine>(
-    `SELECT r.sku_id, s.sku_name, s.distributor_id, COALESCE(d.distributor_name, s.distributor_id) AS distributor_name,
+    `SELECT r.id AS rec_id, COALESCE(r.order_run_id, r.run_id)::int AS order_run, r.sku_id, s.sku_name, s.distributor_id, COALESCE(d.distributor_name, s.distributor_id) AS distributor_name,
             r.final_qty AS qty, s.unit_of_measure AS unit, r.decision_status AS status,
-            (SELECT reason_text FROM decisions x WHERE x.recommendation_id=r.id AND x.undone=false ORDER BY x.id DESC LIMIT 1) AS note
+            (SELECT reason_text FROM decisions x WHERE x.recommendation_id=r.id AND x.undone=false ORDER BY x.id DESC LIMIT 1) AS note,
+            (SELECT decided_by FROM decisions x WHERE x.recommendation_id=r.id AND x.undone=false ORDER BY x.id DESC LIMIT 1) AS approved_by,
+            (SELECT decided_at FROM decisions x WHERE x.recommendation_id=r.id AND x.undone=false ORDER BY x.id DESC LIMIT 1) AS approved_at,
+            z.status AS zoho_status, z.po_number, z.po_id, z.detail AS zoho_detail, z.missing AS zoho_missing
      FROM recommendations r JOIN skus s ON s.sku_id=r.sku_id LEFT JOIN distributors d ON d.distributor_id=s.distributor_id
+     LEFT JOIN zoho_sync z ON z.recommendation_id=r.id
      WHERE r.run_id=$1 AND r.decision_status IN ('Approved','Edited') AND r.final_qty > 0
      ORDER BY s.distributor_id, r.sku_id`, [run[0].id]);
   return { runId: run[0].id, lines };

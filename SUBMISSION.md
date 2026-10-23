@@ -9,13 +9,13 @@
 1. Open **Today**: "7 of 15 SKUs need a decision", the demo-data banner, the festival-uplift note (try *See it without the uplift*).
 2. Open **SKU001**: cover bar (3.4 weeks, ghost marker at 6.1 after the order), sales chart, and the **rule receipt** line by line.
 3. Back on Today, type your name. **Approve** SKU001 (press `A`), **Edit** SKU003 (`E`, quantity 450, reason), **Disapprove** SKU011 (`X`, pick a reason). Press `U` to undo one.
-4. Open **Orders**: Approved lines grouped by distributor; Download CSV; Print.
+4. Open **Orders**: the approved lines appear at once, grouped by distributor, each with a Zoho status chip (draft purchase order number and link); Download CSV; Print; *Send to Zoho (draft)*.
 5. Open **Impact**: baseline versus now, the kill-criteria tiles, the **Kill switch**, and the stale-data back-test.
 
 ## Known limits
 - Sample data only (15 SKUs, 4 distributors); designed for 400 SKUs.
-- No live SAP link (files in by upload or `/api/ingest`). Orders leave as a CSV or printed sheet; there is no Zoho Inventory link.
-- No login: anyone with the link can act. Guardrails are per-IP rate limits, the Run now cooldown, and the kill switch.
+- No live SAP link (files in by upload or `/api/ingest`). Approved lines become DRAFT purchase orders in Zoho Inventory (never confirmed or sent by the app); the CSV download is the fallback.
+- No login: anyone with the link can act. Guardrails are per-IP rate limits, the Run now cooldown, and the kill switch (which also stops Zoho).
 - No prices in the data, so no rupee values are shown except the baseline from the case brief.
 - Free-plan cron timing: the scheduled run may start anywhere inside its 08:00 IST hour. Alert email needs a Zoho Mail mailbox on the same Zoho account.
 - The stale-data panel is a simple back-test on the sample (4-week average, 4 weeks tested). The rules-versus-history back-test needs Raghav's past forecasts.
