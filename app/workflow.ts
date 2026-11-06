@@ -1,12 +1,12 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { markPending, syncForRec } from "@/lib/zohoSync";
+import { markPending, syncForRec } from "@/lib/erpSync";
 import { applyDecision, undoDecision, type DecideInput } from "@/lib/decisions";
 import { query } from "@/lib/db";
 import { guard } from "@/lib/security";
 
-/** Zoho work runs after the response is sent, so Approve stays instant. */
+/** ERPNext work runs after the response is sent, so Approve stays instant. */
 async function queueSync(recIds: number[], mark: boolean) {
   if (mark) for (const id of recIds) await markPending(id).catch(() => {});
   after(async () => { for (const id of recIds) await syncForRec(id).catch(() => {}); });

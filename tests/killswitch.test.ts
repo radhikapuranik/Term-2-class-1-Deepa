@@ -26,11 +26,11 @@ beforeEach(() => { process.env.CRON_SECRET = "cron-secret"; process.env.INGEST_T
 
 describe("kill switch", () => {
   it("is off by default and blocks nothing", async () => {
-    for (const f of ["cron", "run", "ingest", "gemini", "alerts"] as Feature[]) expect(await blocked(f)).toBeNull();
+    for (const f of ["cron", "run", "ingest", "gemini", "alerts", "erp"] as Feature[]) expect(await blocked(f)).toBeNull();
   });
   it("gives a clear message for every feature once switched off, and logs kill and revive", async () => {
     await setKill("override rate too high", "Raghav");
-    for (const f of ["cron", "run", "ingest", "gemini", "alerts"] as Feature[]) expect(await blocked(f)).toMatch(/switched off: override rate too high/);
+    for (const f of ["cron", "run", "ingest", "gemini", "alerts", "erp"] as Feature[]) expect(await blocked(f)).toMatch(/switched off: override rate too high/);
     expect((await getKill())?.by).toBe("Raghav");
     await reviveKill("Raghav");
     expect(await getKill()).toBeNull();

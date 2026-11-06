@@ -5,7 +5,7 @@ import { loadDataset, loadSettings } from "./store";
 import { MAX_EXPLAINED, explainOne, templateExplanation } from "./gemini";
 import { sendDigest } from "./email";
 import { blocked } from "./kill";
-import { reconcileOpen } from "./zohoSync";
+import { reconcileOpen } from "./erpSync";
 
 type Statement = { text: string; params?: unknown[] };
 

@@ -83,3 +83,7 @@ UPDATE recommendations SET order_run_id = run_id WHERE order_run_id IS NULL;
 UPDATE recommendations SET decision_status='Recommended', final_qty=NULL WHERE decision_status IN ('Approved','Edited') AND (final_qty IS NULL);
 CREATE TABLE IF NOT EXISTS zoho_sync (recommendation_id bigint PRIMARY KEY, reference text NOT NULL, status text NOT NULL, po_id text, po_number text, detail text, missing jsonb, attempts integer NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS zoho_locks (reference text PRIMARY KEY, locked_at timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS erp_sync (recommendation_id bigint PRIMARY KEY, reference text NOT NULL, status text NOT NULL, po_name text, detail text, missing jsonb, attempts integer NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS erp_locks (reference text PRIMARY KEY, locked_at timestamptz NOT NULL);
+DROP TABLE IF EXISTS zoho_sync;
+DROP TABLE IF EXISTS zoho_locks;
