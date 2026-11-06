@@ -25,6 +25,7 @@ This is a demo site. Anyone with the link can use every page. Actions ask for a 
 | `DIGEST_TO_EMAIL` | Who gets the Monday and Thursday alert (sent through Zoho Mail) |
 | `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET` | One Zoho Self Client on the India data centre (Mail alerts only) |
 | `ERPNEXT_URL`, `ERPNEXT_API_KEY`, `ERPNEXT_API_SECRET` | Your ERPNext site address and an API key and secret of one ERPNext user |
+| `ERPNEXT_DEFAULT_HSN` | Optional. HSN/SAC code given to items the app creates in ERPNext (India Compliance requires one); defaults to `21069099`, so please correct it per item in ERPNext |
 | `ERPNEXT_COMPANY` | Optional. The ERPNext company to buy for; defaults to the first company |
 | `ZOHO_REFRESH_TOKEN` | Made from the one-time grant code (`ZOHO_GRANT_CODE`, which is deleted after use) |
 | `ZOHO_DC` | `in` (accounts.zoho.in, zohoapis.in, mail.zoho.in) |

@@ -131,7 +131,7 @@ async function doReconcile(reference: string, lines: Line[], opts: { createMissi
   for (const l of lines) {
     let it = await findItem(l);
     if (!it && opts.createMissing) {
-      const c = await efetch<{ data?: { name: string } }>("/api/resource/Item", { method: "POST", json: { item_code: l.sku_id, item_name: l.sku_name, item_group: "All Item Groups", stock_uom: "Nos", is_stock_item: 1, standard_rate: 0 } });
+      const c = await efetch<{ data?: { name: string } }>("/api/resource/Item", { method: "POST", json: { item_code: l.sku_id, item_name: l.sku_name, item_group: "All Item Groups", stock_uom: "Nos", is_stock_item: 1, standard_rate: 0, gst_hsn_code: process.env.ERPNEXT_DEFAULT_HSN || "21069099" } });
       if (c.data?.name) it = { code: c.data.name, rate: 0 };
     }
     if (!it) { await setRows([l.rec_id], reference, "needs_yes", { missing: { item: `${l.sku_id} ${l.sku_name}` }, detail: `Item "${l.sku_name}" (${l.sku_id}) is not in ERPNext.` }); continue; }
